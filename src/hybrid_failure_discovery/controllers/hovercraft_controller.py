@@ -11,11 +11,14 @@ from hybrid_failure_discovery.envs.hovercraft_env import (
 
 
 class HoverCraftParameterizedController:
-    """An LQR-based controller that takes in a single boolean parameter that
-    indicates whether the hovercraft should switch between goal pairs."""
+    """An LQR-based controller that is parameterized by the amount of time to
+    delay before switching between up/down and left/right."""
 
-    def __init__(self, scene_spec: HoverCraftSceneSpec) -> None:
+    def __init__(
+        self, scene_spec: HoverCraftSceneSpec, time_delay_parameter: float = 0.05
+    ) -> None:
         self._scene_spec = scene_spec
+        self._time_delay_parameter = time_delay_parameter  # in seconds
 
         # Prepare LQR.
         A = self._scene_spec.A
@@ -25,17 +28,23 @@ class HoverCraftParameterizedController:
         self._K, _, _ = ct.dlqr(A, B, Q, R)
 
         self._goal_pair_index: tuple[int, int] = (0, 0)
+        self._time_since_switch: float = 0.0
 
     def reset(self, obs: HoverCraftState) -> None:
         """Reset the controller."""
         self._goal_pair_index = self._scene_spec.get_goal_pair_index_from_state(obs)
+        self._time_since_switch = 0.0
 
-    def step(self, obs: HoverCraftState, high_level_action: bool) -> HoverCraftAction:
+    def step(self, obs: HoverCraftState) -> HoverCraftAction:
         """Optionally toggle the goal pair and then return an LQR action."""
 
-        # Change goal to match observation.
-        if high_level_action:
-            self._goal_pair_index = self._scene_spec.get_goal_pair_index_from_state(obs)
+        # Check if goal pair switched.
+        goal_pair_index = self._scene_spec.get_goal_pair_index_from_state(obs)
+
+        # Switch.
+        if self._time_since_switch >= self._time_delay_parameter:
+            self._goal_pair_index = goal_pair_index
+            self._time_since_switch = 0
 
         # Get LQR action.
         state_vec = np.array([obs.x, obs.vx, obs.y, obs.vy])
@@ -45,4 +54,8 @@ class HoverCraftParameterizedController:
         error_vec = np.subtract(state_vec, goal_vec)
         action_vec = -self._K @ error_vec
         ux, uy = action_vec
-        return HoverCraftAction(ux, uy)
+        action = HoverCraftAction(ux, uy)
+
+        self._time_since_switch += self._scene_spec.dt
+
+        return action
