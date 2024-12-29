@@ -1,37 +1,48 @@
 """A controller for the hovercraft environment."""
 
-from tomsutils.gym_agent import Agent
-from hybrid_failure_discovery.envs.hovercraft_env import HoverCraftState, HoverCraftAction, HoverCraftSceneSpec
-from numpy.typing import NDArray
 import control as ct
 import numpy as np
 
+from hybrid_failure_discovery.envs.hovercraft_env import (
+    HoverCraftAction,
+    HoverCraftSceneSpec,
+    HoverCraftState,
+)
 
-class HoverCraftController(Agent[HoverCraftState, HoverCraftAction]):
-    """A controller for the hovercraft environment."""
 
-    def __init__(self, scene_spec: HoverCraftSceneSpec, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+class HoverCraftParameterizedController:
+    """An LQR-based controller that takes in a single boolean parameter that
+    indicates whether the hovercraft should switch between goal pairs."""
+
+    def __init__(self, scene_spec: HoverCraftSceneSpec) -> None:
         self._scene_spec = scene_spec
 
-        # Solve LQR.
-        self._K = self._solve_lqr()
+        # Prepare LQR.
+        A = self._scene_spec.A
+        B = self._scene_spec.B
+        Q = self._scene_spec.Q
+        R = self._scene_spec.R
+        self._K, _, _ = ct.dlqr(A, B, Q, R)
 
-    def _get_action(self) -> HoverCraftAction:
-        state = self._last_observation
-        state_vec = np.array([state.x, state.vx, state.y, state.vy])
-        gx = state.gx
-        gy = state.gy
+        self._goal_pair_index: tuple[int, int] = (0, 0)
+
+    def reset(self, obs: HoverCraftState) -> None:
+        """Reset the controller."""
+        self._goal_pair_index = self._scene_spec.get_goal_pair_index_from_state(obs)
+
+    def step(self, obs: HoverCraftState, high_level_action: bool) -> HoverCraftAction:
+        """Optionally toggle the goal pair and then return an LQR action."""
+
+        # Change goal to match observation.
+        if high_level_action:
+            self._goal_pair_index = self._scene_spec.get_goal_pair_index_from_state(obs)
+
+        # Get LQR action.
+        state_vec = np.array([obs.x, obs.vx, obs.y, obs.vy])
+        gi, gj = self._goal_pair_index
+        gx, gy = self._scene_spec.goal_pairs[gi][gj]
         goal_vec = np.array([gx, 0, gy, 0])
         error_vec = np.subtract(state_vec, goal_vec)
         action_vec = -self._K @ error_vec
         ux, uy = action_vec
         return HoverCraftAction(ux, uy)
-
-    def _solve_lqr(self) -> NDArray:
-        A = self._scene_spec.A
-        B = self._scene_spec.B
-        Q = self._scene_spec.Q
-        R = self._scene_spec.R
-        K, _, _ = ct.dlqr(A, B, Q, R)
-        return K
