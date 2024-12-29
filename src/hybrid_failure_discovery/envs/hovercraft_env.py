@@ -1,12 +1,12 @@
 """Hovercraft environment from Apurva Badithela."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 from gymnasium.core import Env, RenderFrame
-from tomsgeoms2d.structs import Circle
+from tomsgeoms2d.structs import Circle, Geom2D, Rectangle
 from tomsutils.spaces import FunctionalSpace
 from tomsutils.utils import fig2data
 
@@ -33,6 +33,9 @@ class HoverCraftAction:
 class HoverCraftSceneSpec:
     """Static hyperparameters for the hovercraft environment."""
 
+    # Simulation stepsize.
+    dt: float = 0.1
+
     # Initial state hyperparameters.
     init_x: float = 0
     init_y: float = 0
@@ -46,10 +49,21 @@ class HoverCraftSceneSpec:
     # Hovercraft hyperparameters.
     hovercraft_radius: float = 0.04
 
+    # Obstacle hyperparameters.
+    obstacles: list[Geom2D] = field(
+        default_factory=lambda: [
+            Rectangle(-0.5, -0.5, 0.3, 0.3, 0.0),  # bottom left
+            Rectangle(0.2, -0.5, 0.3, 0.3, 0.0),  # bottom right
+            Rectangle(0.2, 0.2, 0.3, 0.3, 0.0),  # top right
+            Rectangle(-0.5, 0.2, 0.3, 0.3, 0.0),  # top left
+        ]
+    )
+
     # Rendering hyperparameters.
     render_figscale: float = 5
     render_padding: float = 0.05
     hovercraft_color: tuple[float, float, float, float] = (0.0, 0.0, 1.0, 1.0)
+    obstacle_color: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 1.0)
 
 
 class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
@@ -97,8 +111,18 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
     ) -> tuple[HoverCraftState, float, bool, bool, dict[str, Any]]:
 
         assert self.action_space.contains(action)
+        dt = self.scene_spec.dt
 
-        # TODO
+        # Move hovercraft.
+        state = self._get_state()
+
+        vx = state.vx + dt * action.ux
+        vy = state.vy + dt * action.uy
+        x = state.x + dt * vx
+        y = state.y + dt * vy
+
+        self._current_state = HoverCraftState(x=x, y=y, vx=vx, vy=vy)
+
         return self._get_state(), 0.0, False, False, self._get_info()
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
@@ -119,6 +143,12 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
         # Plot hovercraft.
         circ = Circle(state.x, state.y, self.scene_spec.hovercraft_radius)
         circ.plot(ax, facecolor=self.scene_spec.hovercraft_color, edgecolor="black")
+
+        # Plot obstacles.
+        for obstacle in self.scene_spec.obstacles:
+            obstacle.plot(
+                ax, facecolor=self.scene_spec.obstacle_color, edgecolor="black"
+            )
 
         ax.set_xlim(min_x + pad, max_x - pad)
         ax.set_ylim(min_y + pad, max_y - pad)
