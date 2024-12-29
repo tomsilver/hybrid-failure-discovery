@@ -15,8 +15,8 @@ def test_hovercraft_env():
     env = HoverCraftEnv()
 
     # Uncomment to create video.
-    # from gymnasium.wrappers import RecordVideo
-    # env = RecordVideo(env, "videos/test-hovercraft-env")
+    from gymnasium.wrappers import RecordVideo
+    env = RecordVideo(env, "videos/test-hovercraft-env")
 
     state, _ = env.reset(seed=123)
     assert isinstance(state, HoverCraftState)

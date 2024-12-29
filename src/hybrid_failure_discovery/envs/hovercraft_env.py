@@ -19,6 +19,8 @@ class HoverCraftState:
     y: float  # y position
     vx: float  # x velocity
     vy: float  # y velocity
+    gx: float  # goal x position
+    gy: float  # goal y position
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,7 @@ class HoverCraftSceneSpec:
     init_y: float = 0
     init_vx: float = 0
     init_vy: float = 0
+    init_goal_index: tuple[int, int] = (0, 0)  # index into goal_pairs
 
     # Scene hyperparameters.
     scene_width: float = 1
@@ -59,11 +62,22 @@ class HoverCraftSceneSpec:
         ]
     )
 
+    # Goal pairs.
+    goal_pairs: list[tuple[tuple[float, float], tuple[float, float]]] = field(
+        default_factory=lambda: [
+            ((-0.42, 0.0), (0.42, 0.0)),  # left, right
+            ((0.0, -0.42,), (0.0, 0.42)),  # down, up
+        ]
+    )
+
     # Rendering hyperparameters.
     render_figscale: float = 5
     render_padding: float = 0.05
     hovercraft_color: tuple[float, float, float, float] = (0.0, 0.0, 1.0, 1.0)
     obstacle_color: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 1.0)
+    goal_circle_color: tuple[float, float, float, float] = (0.0, 1.0, 0.0, 0.25)
+    goal_star_color: tuple[float, float, float, float] = (1.0, 1.0, 0.8, 1.0)
+    goal_star_size: float = 360
 
 
 class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
@@ -97,11 +111,15 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
         super().reset(seed=seed, options=options)
 
         # No randomization for now.
+        gi, gj = self.scene_spec.init_goal_index
+        gx, gy = self.scene_spec.goal_pairs[gi][gj]
         self._current_state = HoverCraftState(
             x=self.scene_spec.init_x,
             y=self.scene_spec.init_y,
             vx=self.scene_spec.init_vx,
             vy=self.scene_spec.init_vy,
+            gx=gx,
+            gy=gy,
         )
 
         return self._get_state(), self._get_info()
@@ -121,7 +139,11 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
         x = state.x + dt * vx
         y = state.y + dt * vy
 
-        self._current_state = HoverCraftState(x=x, y=y, vx=vx, vy=vy)
+        # TODO check for goal reached and switch to the corresponding pair.
+        gx = state.gx
+        gy = state.gy
+
+        self._current_state = HoverCraftState(x=x, y=y, vx=vx, vy=vy, gx=gx, gy=gy)
 
         return self._get_state(), 0.0, False, False, self._get_info()
 
@@ -149,6 +171,16 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
             obstacle.plot(
                 ax, facecolor=self.scene_spec.obstacle_color, edgecolor="black"
             )
+
+        # Plot all goals.
+        for goal_pair in self.scene_spec.goal_pairs:
+            for gx, gy in goal_pair:
+                circ = Circle(gx, gy, self.scene_spec.hovercraft_radius)
+                circ.plot(ax, facecolor=self.scene_spec.goal_circle_color)
+        
+        # Plot the current goal.
+        ax.scatter([state.gx], [state.gy], s=self.scene_spec.goal_star_size, marker='*',
+                   color=self.scene_spec.goal_star_color)
 
         ax.set_xlim(min_x + pad, max_x - pad)
         ax.set_ylim(min_y + pad, max_y - pad)
