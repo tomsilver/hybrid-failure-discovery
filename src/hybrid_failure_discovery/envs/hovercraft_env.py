@@ -99,6 +99,21 @@ class HoverCraftSceneSpec:
             [0, self.dt**2 / 2],
             [0, self.dt],
         ])
+    
+    @property
+    def Q(self) -> NDArray:
+        """Cost function Q matrix."""
+        return np.array([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.1, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 0.1],
+        ])
+    
+    @property
+    def R(self) -> NDArray:
+        """Cost function R matrix."""
+        return 1e-2 * np.eye(2)
 
 
 
@@ -156,6 +171,8 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
 
         A = self.scene_spec.A
         B = self.scene_spec.B
+        Q = self.scene_spec.Q
+        R = self.scene_spec.R
 
         # Integrate.
         state_vec = np.array([state.x, state.vx, state.y, state.vy])
@@ -166,10 +183,16 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
         # TODO check for goal reached and switch to the corresponding pair.
         gx = state.gx
         gy = state.gy
+        goal_vec = np.array([gx, 0, gy, 0])
+
+        # Calculate reward (inverse cost).
+        error_vec = np.subtract(state_vec, goal_vec)
+        cost = error_vec.T @ Q @ error_vec + action_vec.T @ R @ action_vec
+        reward = -cost
 
         self._current_state = HoverCraftState(x=x, y=y, vx=vx, vy=vy, gx=gx, gy=gy)
 
-        return self._get_state(), 0.0, False, False, self._get_info()
+        return self._get_state(), reward, False, False, self._get_info()
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         pad = self.scene_spec.render_padding
