@@ -12,18 +12,17 @@ def test_hovercraft_controller():
     """Tests for hovercraft_controller.py."""
 
     env = HoverCraftEnv()
-    parameterized_controller = HoverCraftParameterizedController(env.scene_spec)
+    controller = HoverCraftParameterizedController(env.scene_spec)
 
     # Uncomment to create video.
     # from gymnasium.wrappers import RecordVideo
     # env = RecordVideo(env, "videos/test-hovercraft-controller")
 
     state, _ = env.reset(seed=123)
-    parameterized_controller.reset(state)
+    controller.reset(state)
 
-    for _ in range(100):
-        parameterized_action = True
-        action = parameterized_controller.step(state, parameterized_action)
+    for _ in range(250):
+        action = controller.step(state)
         state, _, _, _, _ = env.step(action)
 
     env.close()

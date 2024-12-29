@@ -76,7 +76,7 @@ class HoverCraftSceneSpec:
             ),  # down, up
         ]
     )
-    goal_pair_switch_prob: float = 0.1
+    goal_pair_switch_prob: float = 0.01
     goal_atol: float = 1e-3
 
     # Rendering hyperparameters.
@@ -210,15 +210,18 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
         cost = error_vec.T @ Q @ error_vec + action_vec.T @ R @ action_vec
         reward = -cost
 
-        # Check if it's time to update the goal.
-        if np.allclose(goal_vec, state_vec, atol=self.scene_spec.goal_atol):
-            gi, gj = self.scene_spec.get_goal_pair_index_from_state(state)
-            # Switch goal pair.
-            if self._rng.uniform() < self.scene_spec.goal_pair_switch_prob:
-                gi_choices = [
-                    i for i in range(len(self.scene_spec.goal_pairs)) if i != gi
-                ]
-                gi = self._rng.choice(gi_choices)
+        # Handle the goal.
+        gi, gj = self.scene_spec.get_goal_pair_index_from_state(state)
+
+        # Randomly reset between up/down and left/right goals.
+        if self._rng.uniform() < self.scene_spec.goal_pair_switch_prob:
+            gi_choices = [i for i in range(len(self.scene_spec.goal_pairs)) if i != gi]
+            gi = self._rng.choice(gi_choices)
+            gj = self._rng.choice(2)
+            gx, gy = self.scene_spec.goal_pairs[gi][gj]
+
+        # Toggle the goal if we've reached it.
+        elif np.allclose(goal_vec, state_vec, atol=self.scene_spec.goal_atol):
             # Switch to other goal in the pair.
             gj = int(not gj)
             gx, gy = self.scene_spec.goal_pairs[gi][gj]
