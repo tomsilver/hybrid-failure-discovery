@@ -9,6 +9,7 @@ from gymnasium.core import Env, RenderFrame
 from tomsgeoms2d.structs import Circle, Geom2D, Rectangle
 from tomsutils.spaces import FunctionalSpace
 from tomsutils.utils import fig2data
+from numpy.typing import NDArray
 
 
 @dataclass(frozen=True)
@@ -16,8 +17,8 @@ class HoverCraftState:
     """A state in the hovercraft environment."""
 
     x: float  # x position
-    y: float  # y position
     vx: float  # x velocity
+    y: float  # y position
     vy: float  # y velocity
     gx: float  # goal x position
     gy: float  # goal y position
@@ -40,8 +41,8 @@ class HoverCraftSceneSpec:
 
     # Initial state hyperparameters.
     init_x: float = 0
-    init_y: float = 0
     init_vx: float = 0
+    init_y: float = 0
     init_vy: float = 0
     init_goal_index: tuple[int, int] = (0, 0)  # index into goal_pairs
 
@@ -79,6 +80,27 @@ class HoverCraftSceneSpec:
     goal_star_color: tuple[float, float, float, float] = (1.0, 1.0, 0.8, 1.0)
     goal_star_size: float = 360
 
+    @property
+    def A(self) -> NDArray:
+        """System dynamics A matrix."""
+        return np.array([
+            [1, self.dt, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, self.dt],
+            [0, 0, 0, 1],
+        ])
+
+    @property
+    def B(self) -> NDArray:
+        """System dynamics B matrix."""
+        return np.array([
+            [self.dt**2 / 2, 0],
+            [self.dt, 0],
+            [0, self.dt**2 / 2],
+            [0, self.dt],
+        ])
+
+
 
 class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
     """A 2D hovercraft environment."""
@@ -115,8 +137,8 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
         gx, gy = self.scene_spec.goal_pairs[gi][gj]
         self._current_state = HoverCraftState(
             x=self.scene_spec.init_x,
-            y=self.scene_spec.init_y,
             vx=self.scene_spec.init_vx,
+            y=self.scene_spec.init_y,
             vy=self.scene_spec.init_vy,
             gx=gx,
             gy=gy,
@@ -129,15 +151,17 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
     ) -> tuple[HoverCraftState, float, bool, bool, dict[str, Any]]:
 
         assert self.action_space.contains(action)
-        dt = self.scene_spec.dt
 
-        # Move hovercraft.
         state = self._get_state()
 
-        vx = state.vx + dt * action.ux
-        vy = state.vy + dt * action.uy
-        x = state.x + dt * vx
-        y = state.y + dt * vy
+        A = self.scene_spec.A
+        B = self.scene_spec.B
+
+        # Integrate.
+        state_vec = np.array([state.x, state.vx, state.y, state.vy])
+        action_vec = np.array([action.ux, action.uy])
+        next_state_vec = A @ state_vec + B @ action_vec
+        x, vx, y, vy = next_state_vec
 
         # TODO check for goal reached and switch to the corresponding pair.
         gx = state.gx
