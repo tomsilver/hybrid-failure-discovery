@@ -1,15 +1,18 @@
 """Hovercraft environment from Apurva Badithela."""
 
 from dataclasses import dataclass, field
-from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
-from gymnasium.core import Env, RenderFrame
+from gymnasium.core import RenderFrame
 from numpy.typing import NDArray
 from tomsgeoms2d.structs import Circle, Geom2D, Rectangle
-from tomsutils.spaces import FunctionalSpace
+from tomsutils.spaces import EnumSpace, FunctionalSpace
 from tomsutils.utils import fig2data
+
+from hybrid_failure_discovery.envs.constraint_based_env_model import (
+    ConstraintBasedGymEnv,
+)
 
 
 @dataclass(frozen=True)
@@ -139,7 +142,7 @@ class HoverCraftSceneSpec:
         raise ValueError(f"Unrecognized goal: {obs_goal}")
 
 
-class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
+class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
     """A 2D hovercraft environment."""
 
     metadata = {"render_modes": ["rgb_array"], "render_fps": 10}
@@ -149,30 +152,24 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
         scene_spec: HoverCraftSceneSpec = HoverCraftSceneSpec(),
         seed: int = 0,
     ) -> None:
-
         self.scene_spec = scene_spec
-        self._rng = np.random.default_rng(seed)
-
         self.render_mode = "rgb_array"
-        self.action_space = FunctionalSpace(
+        super().__init__(seed)
+
+    def _create_action_space(self) -> FunctionalSpace[HoverCraftAction]:
+        return FunctionalSpace(
             contains_fn=lambda x: isinstance(x, HoverCraftAction),
         )
 
-        self._current_state: HoverCraftState | None = None  # set in reset()
+    def _get_obs(self) -> HoverCraftState:
+        assert self._current_state is not None
+        return self._current_state
 
-    def reset(
-        self,
-        *,
-        seed: int | None = None,
-        options: dict[str, Any] | None = None,
-    ) -> tuple[HoverCraftState, dict[str, Any]]:
-
-        super().reset(seed=seed, options=options)
-
-        # No randomization for now.
+    def get_initial_states(self) -> EnumSpace[HoverCraftState]:
+        # Fully constrained for now.
         gi, gj = self.scene_spec.init_goal_index
         gx, gy = self.scene_spec.goal_pairs[gi][gj]
-        self._current_state = HoverCraftState(
+        initial_state = HoverCraftState(
             x=self.scene_spec.init_x,
             vx=self.scene_spec.init_vx,
             y=self.scene_spec.init_y,
@@ -180,21 +177,16 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
             gx=gx,
             gy=gy,
         )
+        return EnumSpace([initial_state])
 
-        return self._get_state(), self._get_info()
-
-    def step(
-        self, action: HoverCraftAction
-    ) -> tuple[HoverCraftState, float, bool, bool, dict[str, Any]]:
+    def get_next_states(
+        self, state: HoverCraftState, action: HoverCraftAction
+    ) -> EnumSpace[HoverCraftState]:
 
         assert self.action_space.contains(action)
 
-        state = self._get_state()
-
         A = self.scene_spec.A
         B = self.scene_spec.B
-        Q = self.scene_spec.Q
-        R = self.scene_spec.R
 
         # Integrate.
         state_vec = np.array([state.x, state.vx, state.y, state.vy])
@@ -202,35 +194,50 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
         next_state_vec = A @ state_vec + B @ action_vec
         x, vx, y, vy = next_state_vec
 
-        # Calculate reward (inverse cost).
-        gx = state.gx
-        gy = state.gy
-        goal_vec = np.array([gx, 0, gy, 0])
-        error_vec = np.subtract(state_vec, goal_vec)
-        cost = error_vec.T @ Q @ error_vec + action_vec.T @ R @ action_vec
-        reward = -cost
-
-        # Handle the goal.
+        # Handle the goal, which is the only part that is not fully constrained.
         gi, gj = self.scene_spec.get_goal_pair_index_from_state(state)
+        gx, gy = self.scene_spec.goal_pairs[gi][gj]
+        goal_vec = np.array([gx, 0, gy, 0])
 
-        # Randomly reset between up/down and left/right goals.
-        if self._rng.uniform() < self.scene_spec.goal_pair_switch_prob:
-            gi_choices = [i for i in range(len(self.scene_spec.goal_pairs)) if i != gi]
-            gi = self._rng.choice(gi_choices)
-            gj = self._rng.choice(2)
-            gx, gy = self.scene_spec.goal_pairs[gi][gj]
-
-        # Toggle the goal if we've reached it.
-        elif np.allclose(goal_vec, state_vec, atol=self.scene_spec.goal_atol):
-            # Switch to other goal in the pair.
+        # First, always toggle if reached goal.
+        if np.allclose(goal_vec, state_vec, atol=self.scene_spec.goal_atol):
             gj = int(not gj)
             gx, gy = self.scene_spec.goal_pairs[gi][gj]
 
-        self._current_state = HoverCraftState(x=x, y=y, vx=vx, vy=vy, gx=gx, gy=gy)
+        # Now consider switching, or not switching.
+        switch_gi = int(not gi)
+        switch_gj = 0  # arbitrarily always start with left or up
+        switch_gx, switch_gy = self.scene_spec.goal_pairs[switch_gi][switch_gj]
+        switch_next_state = HoverCraftState(
+            x=x, y=y, vx=vx, vy=vy, gx=switch_gx, gy=switch_gy
+        )
+        non_switch_next_state = HoverCraftState(x=x, y=y, vx=vx, vy=vy, gx=gx, gy=gy)
 
-        return self._get_state(), reward, False, False, self._get_info()
+        return EnumSpace([switch_next_state, non_switch_next_state])
 
-    def render(self) -> RenderFrame | list[RenderFrame] | None:
+    def _get_reward_and_termination(
+        self,
+        state: HoverCraftState,
+        action: HoverCraftAction,
+        next_state: HoverCraftState,
+    ) -> tuple[float, bool]:
+        gx = next_state.gx
+        gy = next_state.gy
+        goal_vec = np.array([gx, 0, gy, 0])
+        next_state_vec = np.array(
+            [next_state.x, next_state.vx, next_state.y, next_state.vy]
+        )
+        action_vec = np.array([action.ux, action.uy])
+        error_vec = np.subtract(next_state_vec, goal_vec)
+        Q = self.scene_spec.Q
+        R = self.scene_spec.R
+        cost = error_vec.T @ Q @ error_vec + action_vec.T @ R @ action_vec
+        reward = -cost
+        return reward, False
+
+    def _render_state(
+        self, state: HoverCraftState
+    ) -> RenderFrame | list[RenderFrame] | None:
         pad = self.scene_spec.render_padding
         min_x = -self.scene_spec.scene_width / 2 - pad
         max_x = self.scene_spec.scene_width / 2 + pad
@@ -241,9 +248,6 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
         fig, ax = plt.subplots(
             1, 1, figsize=(scale * (max_x - min_x), scale * (max_y - min_y))
         )
-
-        # Get current state.
-        state = self._get_state()
 
         # Plot hovercraft.
         circ = Circle(state.x, state.y, self.scene_spec.hovercraft_radius)
@@ -279,10 +283,3 @@ class HoverCraftEnv(Env[HoverCraftState, HoverCraftAction]):
         plt.close()
 
         return img  # type: ignore
-
-    def _get_state(self) -> HoverCraftState:
-        assert self._current_state is not None
-        return self._current_state
-
-    def _get_info(self) -> dict[str, Any]:
-        return {}
