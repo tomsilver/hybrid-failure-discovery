@@ -25,6 +25,7 @@ class HoverCraftState:
     vy: float  # y velocity
     gx: float  # goal x position
     gy: float  # goal y position
+    t: float  # the current time in seconds
 
 
 @dataclass(frozen=True)
@@ -79,7 +80,7 @@ class HoverCraftSceneSpec:
             ),  # down, up
         ]
     )
-    goal_pair_switch_prob: float = 0.01
+    goal_switch_interval: float = 2.0  # goal allowed to switch after # seconds
     goal_atol: float = 1e-3
 
     # Rendering hyperparameters.
@@ -176,6 +177,7 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
             vy=self.scene_spec.init_vy,
             gx=gx,
             gy=gy,
+            t=0.0,
         )
         return EnumSpace([initial_state])
 
@@ -194,6 +196,10 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
         next_state_vec = A @ state_vec + B @ action_vec
         x, vx, y, vy = next_state_vec
 
+        # Advance time.
+        dt = self.scene_spec.dt
+        t = state.t + dt
+
         # Handle the goal, which is the only part that is not fully constrained.
         gi, gj = self.scene_spec.get_goal_pair_index_from_state(state)
         gx, gy = self.scene_spec.goal_pairs[gi][gj]
@@ -204,16 +210,29 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
             gj = int(not gj)
             gx, gy = self.scene_spec.goal_pairs[gi][gj]
 
-        # Now consider switching, or not switching.
-        switch_gi = int(not gi)
-        switch_gj = 0  # arbitrarily always start with left or up
-        switch_gx, switch_gy = self.scene_spec.goal_pairs[switch_gi][switch_gj]
-        switch_next_state = HoverCraftState(
-            x=x, y=y, vx=vx, vy=vy, gx=switch_gx, gy=switch_gy
-        )
-        non_switch_next_state = HoverCraftState(x=x, y=y, vx=vx, vy=vy, gx=gx, gy=gy)
+        # The next state might have the same goal.
+        next_states = [
+            HoverCraftState(x=x, y=y, vx=vx, vy=vy, gx=gx, gy=gy, t=t),
+        ]
 
-        return EnumSpace([switch_next_state, non_switch_next_state])
+        # Or the next state might have a switched goal.
+        switch_intv = self.scene_spec.goal_switch_interval
+        if np.floor(t / switch_intv) > np.floor((t - dt) / switch_intv):
+            switch_gi = int(not gi)
+            switch_gj = 0  # arbitrarily always start with left or down
+            switch_gx, switch_gy = self.scene_spec.goal_pairs[switch_gi][switch_gj]
+            switch_next_state = HoverCraftState(
+                x=x,
+                y=y,
+                vx=vx,
+                vy=vy,
+                gx=switch_gx,
+                gy=switch_gy,
+                t=t,
+            )
+            next_states.append(switch_next_state)
+
+        return EnumSpace(next_states)
 
     def _get_reward_and_termination(
         self,

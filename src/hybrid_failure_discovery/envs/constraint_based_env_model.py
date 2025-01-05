@@ -5,6 +5,7 @@ from typing import Any, Generic
 
 from gymnasium.core import ActType, Env, ObsType, RenderFrame
 from gymnasium.spaces import Space
+from tomsutils.utils import sample_seed_from_rng
 
 
 class ConstraintBasedEnvModel(Generic[ObsType, ActType]):
@@ -37,7 +38,8 @@ class ConstraintBasedGymEnv(
     ) -> tuple[ObsType, dict[str, Any]]:
         super().reset(seed=seed, options=options)
         initial_states = self.get_initial_states()
-        initial_states.seed(self._np_random_seed)
+        assert self._np_random is not None
+        initial_states.seed(sample_seed_from_rng(self._np_random))
         self._current_state = initial_states.sample()
         return self._get_obs(), self._get_info()
 
@@ -46,7 +48,8 @@ class ConstraintBasedGymEnv(
     ) -> tuple[ObsType, float, bool, bool, dict[str, Any]]:
         assert self._current_state is not None
         next_states = self.get_next_states(self._current_state, action)
-        next_states.seed(self._np_random_seed)
+        assert self._np_random is not None
+        next_states.seed(sample_seed_from_rng(self._np_random))
         next_state = next_states.sample()
         reward, terminated = self._get_reward_and_termination(
             self._current_state, action, next_state
