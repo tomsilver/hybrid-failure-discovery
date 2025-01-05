@@ -33,7 +33,9 @@ class HoverCraftController(Controller[HoverCraftState, HoverCraftAction]):
 
     def reset(self, initial_state: HoverCraftState) -> None:
         """Reset the controller."""
-        self._goal_pair_index = self._scene_spec.get_goal_pair_index_from_state(initial_state)
+        self._goal_pair_index = self._scene_spec.get_goal_pair_index_from_state(
+            initial_state
+        )
         self._time_since_switch = 0.0
 
     def step(self, state: HoverCraftState) -> HoverCraftAction:
