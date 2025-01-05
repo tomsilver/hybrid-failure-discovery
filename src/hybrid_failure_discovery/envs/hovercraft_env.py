@@ -234,6 +234,10 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
 
         return EnumSpace(next_states)
 
+    def get_hovercraft_circle(self, state: HoverCraftState) -> Circle:
+        """For rendering and external failure checking."""
+        return Circle(state.x, state.y, self.scene_spec.hovercraft_radius)
+
     def _get_reward_and_termination(
         self,
         state: HoverCraftState,
@@ -269,7 +273,7 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
         )
 
         # Plot hovercraft.
-        circ = Circle(state.x, state.y, self.scene_spec.hovercraft_radius)
+        circ = self.get_hovercraft_circle(state)
         circ.plot(ax, facecolor=self.scene_spec.hovercraft_color, edgecolor="black")
 
         # Plot obstacles.
