@@ -3,6 +3,7 @@
 import control as ct
 import numpy as np
 
+from hybrid_failure_discovery.controllers.controller import Controller
 from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftAction,
     HoverCraftSceneSpec,
@@ -10,7 +11,7 @@ from hybrid_failure_discovery.envs.hovercraft_env import (
 )
 
 
-class HoverCraftParameterizedController:
+class HoverCraftController(Controller[HoverCraftState, HoverCraftAction]):
     """An LQR-based controller that is parameterized by the amount of time to
     delay before switching between up/down and left/right."""
 
@@ -30,16 +31,16 @@ class HoverCraftParameterizedController:
         self._goal_pair_index: tuple[int, int] = (0, 0)
         self._time_since_switch: float = 0.0
 
-    def reset(self, obs: HoverCraftState) -> None:
+    def reset(self, initial_state: HoverCraftState) -> None:
         """Reset the controller."""
-        self._goal_pair_index = self._scene_spec.get_goal_pair_index_from_state(obs)
+        self._goal_pair_index = self._scene_spec.get_goal_pair_index_from_state(initial_state)
         self._time_since_switch = 0.0
 
-    def step(self, obs: HoverCraftState) -> HoverCraftAction:
+    def step(self, state: HoverCraftState) -> HoverCraftAction:
         """Optionally toggle the goal pair and then return an LQR action."""
 
         # Check if goal pair switched.
-        goal_pair_index = self._scene_spec.get_goal_pair_index_from_state(obs)
+        goal_pair_index = self._scene_spec.get_goal_pair_index_from_state(state)
 
         # Switch.
         if self._time_since_switch >= self._time_delay_parameter:
@@ -47,7 +48,7 @@ class HoverCraftParameterizedController:
             self._time_since_switch = 0
 
         # Get LQR action.
-        state_vec = np.array([obs.x, obs.vx, obs.y, obs.vy])
+        state_vec = np.array([state.x, state.vx, state.y, state.vy])
         gi, gj = self._goal_pair_index
         gx, gy = self._scene_spec.goal_pairs[gi][gj]
         goal_vec = np.array([gx, 0, gy, 0])
