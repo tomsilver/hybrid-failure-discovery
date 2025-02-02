@@ -109,10 +109,12 @@ class BlocksOption:
         """Initiate the option."""
 
     def step(self, state: BlocksEnvState) -> BlocksAction:
+        """Step the option."""
         del state  # not used right now
         return self._plan.pop(0)
 
-    def terminate(self, state):
+    def terminate(self, state) -> bool:
+        """Check for termination."""
         del state  # not used right now
         return not self._plan
 
