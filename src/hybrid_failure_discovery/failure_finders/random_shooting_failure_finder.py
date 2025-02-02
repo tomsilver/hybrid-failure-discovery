@@ -4,7 +4,7 @@ import numpy as np
 from gymnasium.core import ActType, ObsType
 from tomsutils.utils import sample_seed_from_rng
 
-from hybrid_failure_discovery.controllers.controller import Controller
+from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedEnvModel,
 )
@@ -31,7 +31,7 @@ class RandomShootingFailureFinder(FailureFinder):
     def run(
         self,
         env: ConstraintBasedEnvModel[ObsType, ActType],
-        controller: Controller[ObsType, ActType],
+        controller: ConstraintBasedController[ObsType, ActType],
         failure_monitor: FailureMonitor[ObsType, ActType],
     ) -> tuple[list[ObsType], list[ActType]] | None:
         for traj_idx in range(self._max_num_trajectories):
@@ -47,8 +47,10 @@ class RandomShootingFailureFinder(FailureFinder):
             actions: list[ActType] = []
             failure_found = False
             for _ in range(self._max_trajectory_length):
-                # Get the next action.
-                action = controller.step(state)
+                # Sample an action.
+                action_space = controller.step_action_space(state)
+                action_space.seed(sample_seed_from_rng(self._rng))
+                action = action_space.sample()
                 # Update the state.
                 next_states = env.get_next_states(state, action)
                 next_states.seed(sample_seed_from_rng(self._rng))
