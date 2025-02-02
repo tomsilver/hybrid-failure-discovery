@@ -21,7 +21,7 @@ def test_blocks_controller():
     state, _ = env.reset(seed=123)
     controller.reset(state)
 
-    for _ in range(10):
+    for _ in range(100):
         action = controller.step(state)
         state, _, _, _, _ = env.step(action)
 

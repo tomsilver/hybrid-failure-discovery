@@ -56,6 +56,7 @@ class BlocksController(ConstraintBasedController[BlocksEnvState, BlocksAction]):
     def _sample_action(self, state: BlocksEnvState, rng: np.random.Generator) -> BlocksAction:
         if self._current_option is None or self._current_option.terminate(state):
             # Sample a new initiable option.
+            self._current_option = None
             idxs = list(range(len(self._options)))
             rng.shuffle(idxs)
             ordered_options = [self._options[i] for i in idxs]
@@ -148,11 +149,16 @@ class PickBlockOption(BlocksOption):
         self._robot.set_joints(state.robot.joint_positions)
 
         start_pose = self._robot.get_end_effector_pose()
+        block_pose = state.get_block_state(self._block_name).pose
         waypoint1 = Pose((start_pose.position[0], start_pose.position[1], self._safe_height), start_pose.orientation)
+        waypoint2 = Pose((block_pose.position[0], block_pose.position[1], self._safe_height), start_pose.orientation)
+        waypoint3 = Pose(block_pose.position, start_pose.orientation)
 
         waypoints = [
             start_pose, 
             waypoint1,
+            waypoint2,
+            waypoint3,
         ]
 
         end_effector_path = []
@@ -162,9 +168,12 @@ class PickBlockOption(BlocksOption):
         motion_plan = smoothly_follow_end_effector_path(self._robot, end_effector_path,
                                                         state.robot.joint_positions,
                                                         collision_ids=set(),
-                                                        joint_distance_fn=self._joint_distance_fn)
+                                                        joint_distance_fn=self._joint_distance_fn,
+                                                        max_time=0.5)
 
+        self._plan.append(BlocksAction([0.] * 7, gripper_action=1))  # open
         self._plan = self._motion_plan_to_plan(motion_plan)
+        self._plan.append(BlocksAction([0.] * 7, gripper_action=-1))  # close
 
     def step(self, state: BlocksEnvState) -> BlocksAction:
         return self._plan.pop(0)
