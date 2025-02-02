@@ -31,6 +31,7 @@ class BlocksController(ConstraintBasedController[BlocksEnvState, BlocksAction]):
         seed: int,
         scene_spec: BlocksEnvSceneSpec,
         safe_height: float = 0.25,
+        max_smoothing_iters_per_step: int = 1,
     ) -> None:
         super().__init__(seed)
         self._scene_spec = scene_spec
@@ -40,12 +41,24 @@ class BlocksController(ConstraintBasedController[BlocksEnvState, BlocksAction]):
 
         # Create options.
         pick_options = [
-            PickBlockOption(f"block{i}", seed, self._sim_robot, scene_spec, safe_height)
+            PickBlockOption(
+                f"block{i}",
+                seed,
+                self._sim_robot,
+                scene_spec,
+                safe_height,
+                max_smoothing_iters_per_step,
+            )
             for i in range(scene_spec.num_blocks)
         ]
         stack_options = [
             StackBlockOption(
-                f"block{i}", seed, self._sim_robot, scene_spec, safe_height
+                f"block{i}",
+                seed,
+                self._sim_robot,
+                scene_spec,
+                safe_height,
+                max_smoothing_iters_per_step,
             )
             for i in range(scene_spec.num_blocks)
         ]
@@ -91,11 +104,13 @@ class BlocksOption:
         robot: FingeredSingleArmPyBulletRobot,
         scene_spec: BlocksEnvSceneSpec,
         safe_height: float,
+        max_smoothing_iters_per_step: int = 1,
     ) -> None:
         self._seed = seed
         self._robot = robot
         self._scene_spec = scene_spec
         self._safe_height = safe_height
+        self._max_smoothing_iters_per_step = max_smoothing_iters_per_step
         self._rng = np.random.default_rng(seed)
         self._plan: list[BlocksAction] = []
         self._joint_distance_fn = create_joint_distance_fn(self._robot)
@@ -177,7 +192,7 @@ class PickBlockOption(BlocksOption):
             state.robot.joint_positions,
             collision_ids=set(),
             joint_distance_fn=self._joint_distance_fn,
-            max_time=0.5,
+            max_smoothing_iters_per_step=self._max_smoothing_iters_per_step,
         )
 
         self._plan.append(BlocksAction([0.0] * 7, gripper_action=1))  # open
@@ -240,7 +255,7 @@ class StackBlockOption(BlocksOption):
             state.robot.joint_positions,
             collision_ids=set(),
             joint_distance_fn=self._joint_distance_fn,
-            max_time=0.5,
+            max_smoothing_iters_per_step=self._max_smoothing_iters_per_step,
         )
 
         self._plan = self._motion_plan_to_plan(motion_plan)
