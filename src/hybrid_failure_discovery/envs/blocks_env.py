@@ -1,26 +1,13 @@
 """PyBullet block stacking environment."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
-
 from typing import Any
-import matplotlib.pyplot as plt
-import numpy as np
-from gymnasium.core import RenderFrame
-from numpy.typing import NDArray
-from tomsutils.spaces import EnumSpace, FunctionalSpace
-from tomsutils.utils import fig2data
 
-from hybrid_failure_discovery.envs.constraint_based_env_model import (
-    ConstraintBasedGymEnv,
-)
-
-import gymnasium as gym
 import numpy as np
 import pybullet as p
-from gymnasium import spaces
-from gymnasium.core import ActType, ObsType
-from numpy.typing import NDArray
+from gymnasium.core import RenderFrame
 from pybullet_helpers.camera import capture_image
 from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
@@ -28,6 +15,11 @@ from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block
+from tomsutils.spaces import EnumSpace, FunctionalSpace
+
+from hybrid_failure_discovery.envs.constraint_based_env_model import (
+    ConstraintBasedGymEnv,
+)
 
 
 @dataclass(frozen=True)
@@ -201,23 +193,23 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
             half_extents=self.scene_spec.table_half_extents,
             physics_client_id=self.physics_client_id,
         )
-        set_pose(
-            self.table_id, self.scene_spec.table_pose, self.physics_client_id
-        )
+        set_pose(self.table_id, self.scene_spec.table_pose, self.physics_client_id)
 
         # Create the blocks. Their poses will be reset later.
         self.block_ids = [
-            create_pybullet_block(self.scene_spec.block_rgba,
-                                  self.scene_spec.block_half_extents,
-                                  self.physics_client_id,
-                                  self.scene_spec.block_mass,
-                                  self.scene_spec.block_friction)
+            create_pybullet_block(
+                self.scene_spec.block_rgba,
+                self.scene_spec.block_half_extents,
+                self.physics_client_id,
+                self.scene_spec.block_mass,
+                self.scene_spec.block_friction,
+            )
             for _ in range(self.scene_spec.num_blocks)
         ]
 
         # Initialize the grasp.
         self.current_grasp_transform: Pose | None = None
-        self.current_held_object_id: int | None = None        
+        self.current_held_object_id: int | None = None
 
     def _create_action_space(self) -> FunctionalSpace[BlocksAction]:
         return FunctionalSpace(
@@ -234,10 +226,17 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
         # Get the block states.
         block_states = []
         for block_id in self.block_ids:
-            block_state = BlockState(block_id, get_pose(block_id, self.physics_client_id))
+            block_state = BlockState(
+                block_id, get_pose(block_id, self.physics_client_id)
+            )
             block_states.append(block_state)
 
-        return BlocksEnvState(robot_state, block_states, self.current_held_object_id, self.current_grasp_transform)
+        return BlocksEnvState(
+            robot_state,
+            block_states,
+            self.current_held_object_id,
+            self.current_grasp_transform,
+        )
 
     def get_initial_states(self) -> EnumSpace[BlocksEnvState]:
         # Fully constrained for now.
@@ -252,9 +251,11 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
         # Reset the blocks in just a straight line on the table.
         lx, ly, lz = self.scene_spec.block_init_position_lower
         ux, uy, uz = self.scene_spec.block_init_position_upper
-        x = np.mean([lx, ux])
-        z = np.mean([lz, uz])
-        for i, y in enumerate(np.linspace(ly, uy, num=self.scene_spec.num_blocks, endpoint=True)):
+        x = (lx + ux) / 2
+        z = (lz + uz) / 2
+        for i, y in enumerate(
+            np.linspace(ly, uy, num=self.scene_spec.num_blocks, endpoint=True)
+        ):
             block_id = self.block_ids[i]
             pose = Pose((x, y, z))
             set_pose(block_id, pose, self.physics_client_id)
@@ -266,7 +267,68 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     def get_next_states(
         self, state: BlocksEnvState, action: BlocksAction
     ) -> EnumSpace[BlocksEnvState]:
-        # TODO
+
+        assert self.action_space.contains(action)
+
+        # Update robot arm joints.
+        joint_arr = np.array(self.robot.get_joint_positions())
+        # Assume that first 7 entries are arm.
+        joint_arr[:7] += action.robot_arm_joint_delta
+
+        # Update gripper if required.
+        if action.gripper_action == 1:
+            self.current_grasp_transform = None
+            self.current_held_object_id = None
+        elif action.gripper_action == -1:
+            # Check if any block is close enough to the end effector position
+            # and grasp if so.
+            for block_id in self.block_ids:
+                world_to_robot = self.robot.get_end_effector_pose()
+                end_effector_position = world_to_robot.position
+                world_to_block = get_pose(block_id, self.physics_client_id)
+                block_position = world_to_block.position
+                dist = np.sum(
+                    np.square(np.subtract(end_effector_position, block_position))
+                )
+                # Grasp successful.
+                if dist < 1e-6:
+                    self.current_grasp_transform = multiply_poses(
+                        world_to_robot.invert(), world_to_block
+                    )
+                    self.current_held_object_id = block_id
+
+        # Manually set the robot positions once, effectively forcing position
+        # control, and apply any held object transform. Then run physics for a
+        # certain number of iterations (may need to be tuned). Then reset the
+        # robot and held object again after physics to ensure that position
+        # control is exact. For example, consider pushing a non-held object.
+        clipped_joints = np.clip(
+            joint_arr, self.robot.joint_lower_limits, self.robot.joint_upper_limits
+        )
+        for i in range(2):
+            # Set the robot joints.
+            self.robot.set_joints(clipped_joints.tolist())
+
+            # Apply the grasp transform if it exists.
+            if self.current_grasp_transform:
+                world_to_robot = self.robot.get_end_effector_pose()
+                world_to_block = multiply_poses(
+                    world_to_robot, self.current_grasp_transform
+                )
+                assert self.current_held_object_id is not None
+                set_pose(
+                    self.current_held_object_id,
+                    world_to_block,
+                    self.physics_client_id,
+                )
+
+            if i == 0:
+                for _ in range(self.scene_spec.num_sim_steps_per_step):
+                    p.stepSimulation(physicsClientId=self.physics_client_id)
+
+        # Get the next state.
+        state = self._get_state()
+
         return EnumSpace([state])
 
     def _get_reward_and_termination(
@@ -274,8 +336,10 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     ) -> tuple[float, bool]:
         return 0.0, False
 
-    def _render_state(self, state: ObsType) -> RenderFrame | list[RenderFrame] | None:
-        return capture_image(
-            self.physics_client_id,
-            **self.scene_spec.get_camera_kwargs()
+    def _render_state(
+        self, state: BlocksEnvState
+    ) -> RenderFrame | list[RenderFrame] | None:
+        img = capture_image(
+            self.physics_client_id, **self.scene_spec.get_camera_kwargs()
         )
+        return img  # type: ignore

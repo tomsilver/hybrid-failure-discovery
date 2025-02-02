@@ -4,19 +4,19 @@ import numpy as np
 
 from hybrid_failure_discovery.envs.blocks_env import (
     BlocksAction,
+    BlocksEnv,
     BlocksEnvState,
-    BlocksEnv
 )
 
 
 def test_hovercraft_env():
     """Tests for hovercraft_env.py."""
 
-    env = BlocksEnv(seed=123, use_gui=True)
+    env = BlocksEnv(seed=123, use_gui=False)
 
     # Uncomment to create video.
-    from gymnasium.wrappers import RecordVideo
-    env = RecordVideo(env, "videos/test-blocks-env")
+    # from gymnasium.wrappers import RecordVideo
+    # env = RecordVideo(env, "videos/test-blocks-env")
 
     state, _ = env.reset(seed=123)
     assert isinstance(state, BlocksEnvState)

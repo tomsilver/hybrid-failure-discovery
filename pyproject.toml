@@ -57,5 +57,6 @@ exclude = ["venv/*"]
 module = [
     "matplotlib.*",
     "control.*",
+    "pybullet.*",
 ]
 ignore_missing_imports = true
