@@ -344,10 +344,32 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     ) -> tuple[float, bool]:
         return 0.0, False
 
+    def _set_state(self, state: BlocksEnvState) -> None:
+        # Set robot state.
+        self.robot.set_joints(state.robot.joint_positions)
+
+        # Set grasp.
+        self.current_grasp_transform = state.held_block_grasp
+        self.current_held_block = state.held_block_name
+
+        # Set block states.
+        for block_state in state.blocks:
+            block_id = self.block_ids[block_state.name]
+            set_pose(block_id, block_state.pose, self.physics_client_id)
+
     def _render_state(
         self, state: BlocksEnvState
     ) -> RenderFrame | list[RenderFrame] | None:
+        self._set_state(state)
         img = capture_image(
             self.physics_client_id, **self.scene_spec.get_camera_kwargs()
         )
+
+        # In non-render mode, PyBullet does not render background correctly.
+        # We want the background to be black instead of white. Here, make the
+        # assumption that all perfectly white pixels belong to the background
+        # and manually swap in black.
+        background_mask = (img == [255, 255, 255]).all(axis=2)
+        img[background_mask] = 0
+
         return img  # type: ignore
