@@ -31,7 +31,7 @@ class BlocksController(ConstraintBasedController[BlocksEnvState, BlocksAction]):
 
         # Create options.
         self._options = [
-            PickBlockOption(seed, f"block-{i}", self._sim)
+            PickBlockOption(seed, f"block{i}", self._sim)
             for i in range(scene_spec.num_blocks)
         ]
 
@@ -93,11 +93,36 @@ class PickBlockOption(BlocksOption):
         self._plan: list[BlocksAction] = []
 
     def can_initiate(self, state: BlocksEnvState) -> bool:
-        # TODO hand empty
-        # TODO nothing above
-        import ipdb
+        # Robot hand must be empty.
+        if state.held_block_name:
+            return False
 
-        ipdb.set_trace()
+        # The block must not have anything on top of it.
+        block_state = state.get_block_state(self._block_name)
+        x_thresh = self._sim.scene_spec.block_half_extents[0]
+        y_thresh = self._sim.scene_spec.block_half_extents[1]
+        for other_block_state in state.blocks:
+            if other_block_state.name == self._block_name:
+                continue
+            # Check if this other block is above the main one.
+            if other_block_state.pose.position[2] <= block_state.pose.position[2]:
+                continue
+            # Check if close enough in the x plane.
+            if (
+                abs(other_block_state.pose.position[0] - block_state.pose.position[0])
+                > x_thresh
+            ):
+                continue
+            # Check if close enough in the y plane.
+            if (
+                abs(other_block_state.pose.position[1] - block_state.pose.position[1])
+                > y_thresh
+            ):
+                continue
+            # On is true.
+            return False
+
+        return True
 
     def initiate(self, state: BlocksEnvState) -> bool:
         # TODO make a plan

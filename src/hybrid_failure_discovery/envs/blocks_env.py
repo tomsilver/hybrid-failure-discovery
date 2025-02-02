@@ -46,6 +46,13 @@ class BlocksEnvState:
     held_block_name: str | None = None
     held_block_grasp: Pose | None = None
 
+    def get_block_state(self, name: str) -> BlockState:
+        """Get the state of a single block."""
+        for block in self.blocks:
+            if block.name == name:
+                return block
+        raise ValueError(f"Block with name {name} not in state")
+
 
 @dataclass(frozen=True)
 class BlocksAction:
