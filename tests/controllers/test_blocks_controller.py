@@ -16,6 +16,7 @@ def test_blocks_controller():
 
     # Uncomment to create video.
     from gymnasium.wrappers import RecordVideo
+
     env = RecordVideo(env, "videos/test-blocks-controller")
 
     state, _ = env.reset(seed=123)
