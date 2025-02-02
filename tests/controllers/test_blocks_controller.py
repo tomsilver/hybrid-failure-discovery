@@ -11,8 +11,8 @@ from hybrid_failure_discovery.envs.blocks_env import (
 def test_blocks_controller():
     """Tests for blocks_controller.py."""
 
-    env = BlocksEnv()
-    controller = BlocksController(123)
+    env = BlocksEnv(seed=123, use_gui=True)
+    controller = BlocksController(123, env.scene_spec)
 
     # Uncomment to create video.
     # from gymnasium.wrappers import RecordVideo
