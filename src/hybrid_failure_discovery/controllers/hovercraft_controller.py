@@ -2,8 +2,10 @@
 
 import control as ct
 import numpy as np
+from gymnasium.spaces import Space
+from tomsutils.spaces import EnumSpace
 
-from hybrid_failure_discovery.controllers.controller import Controller
+from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftAction,
     HoverCraftSceneSpec,
@@ -11,13 +13,19 @@ from hybrid_failure_discovery.envs.hovercraft_env import (
 )
 
 
-class HoverCraftController(Controller[HoverCraftState, HoverCraftAction]):
+class HoverCraftController(
+    ConstraintBasedController[HoverCraftState, HoverCraftAction]
+):
     """An LQR-based controller that is parameterized by the amount of time to
     delay before switching between up/down and left/right."""
 
     def __init__(
-        self, scene_spec: HoverCraftSceneSpec, time_delay_parameter: float = 0.05
+        self,
+        seed: int,
+        scene_spec: HoverCraftSceneSpec,
+        time_delay_parameter: float = 0.05,
     ) -> None:
+        super().__init__(seed)
         self._scene_spec = scene_spec
         self._time_delay_parameter = time_delay_parameter  # in seconds
 
@@ -38,7 +46,7 @@ class HoverCraftController(Controller[HoverCraftState, HoverCraftAction]):
         )
         self._time_since_switch = 0.0
 
-    def step(self, state: HoverCraftState) -> HoverCraftAction:
+    def step_action_space(self, state: HoverCraftState) -> Space[HoverCraftAction]:
         """Optionally toggle the goal pair and then return an LQR action."""
 
         # Check if goal pair switched.
@@ -61,4 +69,6 @@ class HoverCraftController(Controller[HoverCraftState, HoverCraftAction]):
 
         self._time_since_switch += self._scene_spec.dt
 
-        return action
+        # Singleton space right now.
+        action_space = EnumSpace([action])
+        return action_space

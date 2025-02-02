@@ -5,7 +5,7 @@ from typing import Callable, Generic
 
 from gymnasium.core import ActType, ObsType
 
-from hybrid_failure_discovery.controllers.controller import Controller
+from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedEnvModel,
 )
@@ -43,7 +43,7 @@ class FailureFinder(abc.ABC):
     def run(
         self,
         env: ConstraintBasedEnvModel[ObsType, ActType],
-        controller: Controller[ObsType, ActType],
+        controller: ConstraintBasedController[ObsType, ActType],
         failure_monitor: FailureMonitor[ObsType, ActType],
     ) -> tuple[list[ObsType], list[ActType]] | None:
         """Find a failure trajectory or return None."""

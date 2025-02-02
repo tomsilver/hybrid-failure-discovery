@@ -18,7 +18,7 @@ def test_random_shooting_failure_finder():
     """Tests for random_shooting_failure_finder.py."""
 
     env = HoverCraftEnv()
-    controller = HoverCraftController(env.scene_spec)
+    controller = HoverCraftController(123, env.scene_spec)
 
     def _collision_failure(state: HoverCraftState) -> bool:
         circ = env.get_hovercraft_circle(state)
