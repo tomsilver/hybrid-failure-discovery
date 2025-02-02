@@ -5,6 +5,7 @@ import abc
 import numpy as np
 from gymnasium.spaces import Space
 from tomsutils.spaces import FunctionalSpace
+from functools import partial
 
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.blocks_env import (
@@ -13,6 +14,10 @@ from hybrid_failure_discovery.envs.blocks_env import (
     BlocksEnvSceneSpec,
     BlocksEnvState,
 )
+from pybullet_helpers.motion_planning import smoothly_follow_end_effector_path, create_joint_distance_fn
+from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
+from pybullet_helpers.geometry import Pose, iter_between_poses
+from pybullet_helpers.joint import JointPositions
 
 
 class BlocksController(ConstraintBasedController[BlocksEnvState, BlocksAction]):
@@ -22,16 +27,17 @@ class BlocksController(ConstraintBasedController[BlocksEnvState, BlocksAction]):
         self,
         seed: int,
         scene_spec: BlocksEnvSceneSpec,
+        safe_height: float = 0.25,
     ) -> None:
         super().__init__(seed)
         self._scene_spec = scene_spec
 
-        # Create a "simulator".
-        self._sim = BlocksEnv(scene_spec, seed=seed)
+        # Create a simulated robot for kinematics and such.
+        self._sim_robot = BlocksEnv(scene_spec, seed=seed).robot
 
         # Create options.
         self._options = [
-            PickBlockOption(seed, f"block{i}", self._sim)
+            PickBlockOption(seed, f"block{i}", self._sim_robot, scene_spec, safe_height)
             for i in range(scene_spec.num_blocks)
         ]
 
@@ -44,14 +50,14 @@ class BlocksController(ConstraintBasedController[BlocksEnvState, BlocksAction]):
     def step_action_space(self, state: BlocksEnvState) -> Space[BlocksAction]:
         return FunctionalSpace(
             contains_fn=lambda x: isinstance(x, BlocksAction),
-            sample_fn=self._sample_action(state),
+            sample_fn=partial(self._sample_action, state),
         )
 
-    def _sample_action(self, state: BlocksEnvState) -> BlocksAction:
+    def _sample_action(self, state: BlocksEnvState, rng: np.random.Generator) -> BlocksAction:
         if self._current_option is None or self._current_option.terminate(state):
             # Sample a new initiable option.
             idxs = list(range(len(self._options)))
-            self._np_random.shuffle(idxs)
+            rng.shuffle(idxs)
             ordered_options = [self._options[i] for i in idxs]
             for option in ordered_options:
                 if option.can_initiate(state):
@@ -70,7 +76,7 @@ class BlocksOption:
         """Whether the option could be initiated in the given state."""
 
     @abc.abstractmethod
-    def initiate(self, state: BlocksEnvState) -> bool:
+    def initiate(self, state: BlocksEnvState) -> None:
         """Initiate the option."""
 
     @abc.abstractmethod
@@ -81,16 +87,29 @@ class BlocksOption:
     def terminate(self, state: BlocksEnvState) -> bool:
         """Whether the option terminates in the given state."""
 
+    def _motion_plan_to_plan(self, motion_plan: list[JointPositions]) -> list[BlocksAction]:
+        plan = []
+        for t in range(len(motion_plan) - 1):
+            delta = np.subtract(motion_plan[t + 1], motion_plan[t]).tolist()[:7]
+            action = BlocksAction(delta, gripper_action=0)
+            plan.append(action)
+        return plan
+
+
 
 class PickBlockOption(BlocksOption):
     """A partial controller for picking an exposed block."""
 
-    def __init__(self, seed: int, block_name: str, sim: BlocksEnv) -> None:
+    def __init__(self, seed: int, block_name: str, robot: FingeredSingleArmPyBulletRobot,
+                 scene_spec: BlocksEnvSceneSpec, safe_height: float) -> None:
         self._seed = seed
         self._block_name = block_name
-        self._sim = sim
+        self._robot = robot
+        self._scene_spec = scene_spec
+        self._safe_height = safe_height
         self._rng = np.random.default_rng(seed)
         self._plan: list[BlocksAction] = []
+        self._joint_distance_fn = create_joint_distance_fn(self._robot)
 
     def can_initiate(self, state: BlocksEnvState) -> bool:
         # Robot hand must be empty.
@@ -99,8 +118,8 @@ class PickBlockOption(BlocksOption):
 
         # The block must not have anything on top of it.
         block_state = state.get_block_state(self._block_name)
-        x_thresh = self._sim.scene_spec.block_half_extents[0]
-        y_thresh = self._sim.scene_spec.block_half_extents[1]
+        x_thresh = self._scene_spec.block_half_extents[0]
+        y_thresh = self._scene_spec.block_half_extents[1]
         for other_block_state in state.blocks:
             if other_block_state.name == self._block_name:
                 continue
@@ -124,11 +143,28 @@ class PickBlockOption(BlocksOption):
 
         return True
 
-    def initiate(self, state: BlocksEnvState) -> bool:
-        # TODO make a plan
-        import ipdb
+    def initiate(self, state: BlocksEnvState) -> None:
+        # Reset the simulated robot to the given state.
+        self._robot.set_joints(state.robot.joint_positions)
 
-        ipdb.set_trace()
+        start_pose = self._robot.get_end_effector_pose()
+        waypoint1 = Pose((start_pose.position[0], start_pose.position[1], self._safe_height), start_pose.orientation)
+
+        waypoints = [
+            start_pose, 
+            waypoint1,
+        ]
+
+        end_effector_path = []
+        for p1, p2 in zip(waypoints[:-1], waypoints[1:], strict=True):
+            end_effector_path.extend(iter_between_poses(p1, p2))
+
+        motion_plan = smoothly_follow_end_effector_path(self._robot, end_effector_path,
+                                                        state.robot.joint_positions,
+                                                        collision_ids=set(),
+                                                        joint_distance_fn=self._joint_distance_fn)
+
+        self._plan = self._motion_plan_to_plan(motion_plan)
 
     def step(self, state: BlocksEnvState) -> BlocksAction:
         return self._plan.pop(0)

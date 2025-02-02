@@ -158,7 +158,7 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
 
         # Create the PyBullet client.
         if use_gui:
-            self.physics_client_id = create_gui_connection(camera_yaw=180)
+            self.physics_client_id = create_gui_connection(camera_yaw=90)
         else:
             self.physics_client_id = p.connect(p.DIRECT)
 

@@ -15,13 +15,13 @@ def test_blocks_controller():
     controller = BlocksController(123, env.scene_spec)
 
     # Uncomment to create video.
-    # from gymnasium.wrappers import RecordVideo
-    # env = RecordVideo(env, "videos/test-blocks-controller")
+    from gymnasium.wrappers import RecordVideo
+    env = RecordVideo(env, "videos/test-blocks-controller")
 
     state, _ = env.reset(seed=123)
     controller.reset(state)
 
-    for _ in range(250):
+    for _ in range(10):
         action = controller.step(state)
         state, _, _, _, _ = env.step(action)
 
