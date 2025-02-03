@@ -13,29 +13,8 @@ from tomsutils.utils import fig2data
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedGymEnv,
 )
-
+from hybrid_failure_discovery.envs.hovercraft_env import HoverCraftEnv, HoverCraftState, HoverCraftAction
 from pdb import set_trace as st
-
-@dataclass(frozen=True)
-class HoverCraftState:
-    """A state in the hovercraft environment."""
-
-    x: float  # x position
-    vx: float  # x velocity
-    y: float  # y position
-    vy: float  # y velocity
-    gx: float  # goal x position
-    gy: float  # goal y position
-    t: float  # the current time in seconds
-
-
-@dataclass(frozen=True)
-class HoverCraftAction:
-    """An action in the hovercraft environment."""
-
-    ux: float  # x acceleration
-    uy: float  # y acceleration
-
 
 @dataclass(frozen=True)
 class HoverCraftSceneSpec:
@@ -138,47 +117,11 @@ class HoverCraftSceneSpec:
         raise ValueError(f"Unrecognized goal: {obs_goal}")
 
 
-class HoverCraftEnvTough(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
-    """A 2D hovercraft environment."""
-
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 10}
-
-    def __init__(
-        self,
-        scene_spec: HoverCraftSceneSpec = HoverCraftSceneSpec(),
-        seed: int = 0,
-    ) -> None:
-        self.scene_spec = scene_spec
-        self.render_mode = "rgb_array"
-        super().__init__(seed)
-
-    def _create_action_space(self) -> FunctionalSpace[HoverCraftAction]:
-        return FunctionalSpace(
-            contains_fn=lambda x: isinstance(x, HoverCraftAction),
-        )
-
-    def _get_obs(self) -> HoverCraftState:
-        assert self._current_state is not None
-        return self._current_state
-
-    def get_initial_states(self) -> EnumSpace[HoverCraftState]:
-        # Fully constrained for now.
-        gi, gj = self.scene_spec.init_goal_index
-        gx, gy = self.scene_spec.goal_pairs[gi][gj]
-        initial_state = HoverCraftState(
-            x=self.scene_spec.init_x,
-            vx=self.scene_spec.init_vx,
-            y=self.scene_spec.init_y,
-            vy=self.scene_spec.init_vy,
-            gx=gx,
-            gy=gy,
-            t=0.0,
-        )
-        return EnumSpace([initial_state])
-
+class HoverCraftEnvTough(HoverCraftEnv):
+    
     def in_switch_region(self, state:HoverCraftState) -> bool:
         '''
-        Can switch if hovercraft is in switching region at the center
+        Can switch only when hovercraft is in switching region at the center
         '''
         if -0.2<= state.x <= 0.2 and -0.2<= state.y <= 0.2:
             return True
