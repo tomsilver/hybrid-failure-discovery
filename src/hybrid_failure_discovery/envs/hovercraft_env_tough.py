@@ -72,13 +72,7 @@ class HoverCraftSceneSpec:
     goal_pairs: list[tuple[tuple[float, float], tuple[float, float]]] = field(
         default_factory=lambda: [
             ((-0.42, 0.0), (0.42, 0.0)),  # left, right
-            (
-                (
-                    0.0,
-                    -0.42,
-                ),
-                (0.0, 0.42),
-            ),  # down, up
+            ((0.0,-0.42),(0.0, 0.42),),  # down, up
         ]
     )
     goal_switch_interval: float = 2.0  # goal allowed to switch after # seconds
@@ -144,7 +138,7 @@ class HoverCraftSceneSpec:
         raise ValueError(f"Unrecognized goal: {obs_goal}")
 
 
-class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
+class HoverCraftEnvTough(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
     """A 2D hovercraft environment."""
 
     metadata = {"render_modes": ["rgb_array"], "render_fps": 10}
@@ -182,12 +176,24 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
         )
         return EnumSpace([initial_state])
 
+    def in_switch_region(self, state:HoverCraftState) -> bool:
+        '''
+        Can switch if hovercraft is in switching region at the center
+        '''
+        if -0.2<= state.x <= 0.2 and -0.2<= state.y <= 0.2:
+            return True
+        else:
+            return False
+
     def get_next_states(
         self, state: HoverCraftState, action: HoverCraftAction
     ) -> EnumSpace[HoverCraftState]:
 
-        assert self.action_space.contains(action)
-        
+        try:
+            assert self.action_space.contains(action)
+        except:
+            st()
+
         A = self.scene_spec.A
         B = self.scene_spec.B
 
@@ -218,7 +224,7 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
 
         # Or the next state might have a switched goal.
         switch_intv = self.scene_spec.goal_switch_interval
-        if np.floor(t / switch_intv) > np.floor((t - dt) / switch_intv):
+        if np.floor(t / switch_intv) > np.floor((t - dt) / switch_intv) and self.in_switch_region(state):
             switch_gi = int(not gi)
             switch_gj = 0  # arbitrarily always start with left or down
             switch_gx, switch_gy = self.scene_spec.goal_pairs[switch_gi][switch_gj]

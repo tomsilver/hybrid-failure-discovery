@@ -12,7 +12,7 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
     FailureFinder,
     FailureMonitor,
 )
-
+from pdb import set_trace as st
 
 class RandomShootingFailureFinder(FailureFinder):
     """A naive failure finder that just randomly samples trajectories."""
@@ -49,10 +49,11 @@ class RandomShootingFailureFinder(FailureFinder):
             for _ in range(self._max_trajectory_length):
                 # Get the next action.
                 action = controller.step(state)
+
                 # Update the state.
-                next_states = env.get_next_states(state, action)
+                next_states = env.get_next_states(state, action) # Possible states of the environment
                 next_states.seed(sample_seed_from_rng(self._rng))
-                state = next_states.sample()
+                state = next_states.sample() # Possible selections by the environment.
                 # Save the trajectory.
                 actions.append(action)
                 states.append(state)

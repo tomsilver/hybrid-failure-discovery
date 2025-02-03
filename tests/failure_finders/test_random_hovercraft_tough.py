@@ -2,10 +2,10 @@
 
 from tomsgeoms2d.structs import geom2ds_intersect
 
-from hybrid_failure_discovery.controllers.hovercraft_controller import (
-    HoverCraftController,
+from hybrid_failure_discovery.controllers.hovercraft_controller_tough import (
+    HoverCraftControllerTough,
 )
-from hybrid_failure_discovery.envs.hovercraft_env import HoverCraftEnv, HoverCraftState
+from hybrid_failure_discovery.envs.hovercraft_env_tough import HoverCraftEnvTough, HoverCraftState
 from hybrid_failure_discovery.failure_finders.failure_finder import (
     MemorylessStateFailureMonitor,
 )
@@ -14,11 +14,11 @@ from hybrid_failure_discovery.failure_finders.random_shooting_failure_finder imp
 )
 from pdb import set_trace as st
 
-def test_random_shooting_failure_finder():
+def test_random_shooting_failure_finder_tough():
     """Tests for random_shooting_failure_finder.py."""
 
-    env = HoverCraftEnv()
-    controller = HoverCraftController(env.scene_spec)
+    env = HoverCraftEnvTough()
+    controller = HoverCraftControllerTough(env.scene_spec)
 
     def _collision_failure(state: HoverCraftState) -> bool:
         circ = env.get_hovercraft_circle(state)
@@ -32,6 +32,7 @@ def test_random_shooting_failure_finder():
     failure_finder = RandomShootingFailureFinder(seed=123)
 
     result = failure_finder.run(env, controller, failure_monitor)
+    st()
     assert result is not None
 
     # Uncomment to visualize.
@@ -46,6 +47,6 @@ def test_random_shooting_failure_finder():
         repo_root = repo_root.parent
 
     # Now construct the path relative to the repo root
-    path = repo_root / "videos" / "test-random-shooting" / "random-shooting_test.mp4"
+    path = repo_root / "videos" / "test-random-shooting" / "random-shooting_test_hovercraft_tough.mp4"
     path.parent.mkdir(parents=True, exist_ok=True)
     iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
