@@ -42,13 +42,15 @@ def test_random_shooting_failure_finder():
 
     # Uncomment to visualize.
     from pathlib import Path
+
     import imageio.v2 as iio
+
     states, _ = result
     imgs = [env._render_state(s) for s in states]
 
     # Find the root directory of the repository (the directory containing the .git folder)
     repo_root = Path(__file__).resolve().parent
-    while not (repo_root / '.git').exists():  # Look for the .git folder
+    while not (repo_root / ".git").exists():  # Look for the .git folder
         repo_root = repo_root.parent
 
     # Now construct the path relative to the repo root

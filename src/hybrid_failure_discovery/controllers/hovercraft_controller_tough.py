@@ -1,8 +1,10 @@
 """A controller for the hovercraft environment."""
 
+from pdb import set_trace as st
+
 import control as ct
 import numpy as np
-from pdb import set_trace as st
+
 from hybrid_failure_discovery.controllers.controller import Controller
 from hybrid_failure_discovery.envs.hovercraft_env_tough import (
     HoverCraftAction,
@@ -13,7 +15,8 @@ from hybrid_failure_discovery.envs.hovercraft_env_tough import (
 
 class HoverCraftControllerTough(Controller[HoverCraftState, HoverCraftAction]):
     """An LQR-based controller that is parameterized by the amount of time to
-    delay before switching between up/down and left/right, and solves a constrained LQR problem."""
+    delay before switching between up/down and left/right, and solves a
+    constrained LQR problem."""
 
     def __init__(
         self, scene_spec: HoverCraftSceneSpec, time_delay_parameter: float = 0.05
@@ -27,7 +30,7 @@ class HoverCraftControllerTough(Controller[HoverCraftState, HoverCraftAction]):
         Q = self._scene_spec.Q
         R = self._scene_spec.R
         self._K, _, _ = ct.dlqr(A, B, Q, R)
-        self.MIN = 1e-6 # Minimum
+        self.MIN = 1e-6  # Minimum
 
         self._goal_pair_index: tuple[int, int] = (0, 0)
         self._time_since_switch: float = 0.0

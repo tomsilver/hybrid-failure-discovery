@@ -1,6 +1,7 @@
 """Hovercraft environment from Apurva Badithela."""
 
 from dataclasses import dataclass, field
+from pdb import set_trace as st
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,7 +15,6 @@ from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedGymEnv,
 )
 
-from pdb import set_trace as st
 
 @dataclass(frozen=True)
 class HoverCraftState:
@@ -187,7 +187,7 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
     ) -> EnumSpace[HoverCraftState]:
 
         assert self.action_space.contains(action)
-        
+
         A = self.scene_spec.A
         B = self.scene_spec.B
 
