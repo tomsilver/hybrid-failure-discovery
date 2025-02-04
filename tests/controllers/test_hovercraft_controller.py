@@ -12,7 +12,7 @@ def test_hovercraft_controller():
     """Tests for hovercraft_controller.py."""
 
     env = HoverCraftEnv()
-    controller = HoverCraftController(env.scene_spec)
+    controller = HoverCraftController(123, env.scene_spec)
 
     # Uncomment to create video.
     # from gymnasium.wrappers import RecordVideo
