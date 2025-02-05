@@ -19,8 +19,8 @@ class RandomShootingFailureFinder(FailureFinder):
 
     def __init__(
         self,
-        max_num_trajectories: int = 1000,
-        max_trajectory_length: int = 100,
+        max_num_trajectories: int = 10,
+        max_trajectory_length: int = 250,
         seed: int = 0,
     ) -> None:
         self._max_num_trajectories = max_num_trajectories

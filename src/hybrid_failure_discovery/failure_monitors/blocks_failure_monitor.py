@@ -2,6 +2,7 @@
 
 from hybrid_failure_discovery.envs.blocks_env import (
     BlocksAction,
+    BlocksEnvSceneSpec,
     BlocksEnvState,
 )
 from hybrid_failure_discovery.failure_monitors.failure_monitor import (
@@ -12,7 +13,8 @@ from hybrid_failure_discovery.failure_monitors.failure_monitor import (
 class BlocksFailureMonitor(FailureMonitor[BlocksEnvState, BlocksAction]):
     """A failure occurs when some block that is not held moves."""
 
-    def __init__(self, move_tol: float = 0.05) -> None:
+    def __init__(self, scene_spec: BlocksEnvSceneSpec, move_tol: float = 0.05) -> None:
+        self._scene_spec = scene_spec
         self._previous_state: BlocksEnvState | None = None
         self._move_tol = move_tol
 

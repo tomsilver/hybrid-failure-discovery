@@ -14,6 +14,8 @@ dependencies = [
    "gymnasium",
    "control",
    "moviepy",
+   "pandas",
+   "pandas-stubs",
    "tomsutils@git+https://github.com/tomsilver/toms-utils.git",
    "tomsgeoms2d@git+https://github.com/tomsilver/toms-geoms-2d.git",
    "pybullet_helpers@git+https://github.com/tomsilver/pybullet-helpers.git",
