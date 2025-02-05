@@ -48,7 +48,7 @@ def _create_failure_finder(name: str, seed: int) -> FailureFinder:
 def _create_env(name: str, seed: int, **kwargs) -> ConstraintBasedEnvModel:
     if name == "hovercraft":
         return HoverCraftEnv(seed=seed, **kwargs)
-    if name == "blocks":
+    if name.startswith("blocks"):
         return BlocksEnv(seed=seed, **kwargs)
     raise NotImplementedError
 
@@ -56,15 +56,21 @@ def _create_env(name: str, seed: int, **kwargs) -> ConstraintBasedEnvModel:
 def _create_controller(name: str, seed: int, **kwargs) -> ConstraintBasedController:
     if name == "hovercraft":
         return HoverCraftController(seed=seed, **kwargs)
-    if name == "blocks":
-        return BlocksController(seed=seed, **kwargs)
+    if name.startswith("blocks"):
+        # This is hacky, but a way to vary the safe height for the controller.
+        if "-" in name:
+            _, safe_height_str = name.split("-")
+            safe_height = float(safe_height_str)
+        else:
+            safe_height = 0.25
+        return BlocksController(seed=seed, safe_height=safe_height, **kwargs)
     raise NotImplementedError
 
 
 def _create_failure_monitor(name: str, **kwargs) -> FailureMonitor:
     if name == "hovercraft":
         return HoverCraftFailureMonitor(**kwargs)
-    if name == "blocks":
+    if name.startswith("blocks"):
         return BlocksFailureMonitor(**kwargs)
     raise NotImplementedError
 

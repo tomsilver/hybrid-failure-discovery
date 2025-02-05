@@ -35,7 +35,7 @@ def test_random_shooting_failure_finder():
     # Test failure finder in blocks env with a too-low height.
     env = BlocksEnv()
     controller = BlocksController(123, env.scene_spec, safe_height=0.15)
-    failure_monitor = BlocksFailureMonitor()
+    failure_monitor = BlocksFailureMonitor(env.scene_spec)
     failure_finder = RandomShootingFailureFinder(seed=123, max_trajectory_length=250)
     result = failure_finder.run(env, controller, failure_monitor)
     assert result is not None
