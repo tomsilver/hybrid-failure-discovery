@@ -32,8 +32,8 @@ def test_heuristic_failure_finder():
         switch_just_happened = False
         for t in range(len(actions)):
             state = states[t]
-            next_state = states[t+1]
-            switch_happening = (state.gx != next_state.gx or state.gy != next_state.gy)
+            next_state = states[t + 1]
+            switch_happening = state.gx != next_state.gx or state.gy != next_state.gy
             if switch_happening and switch_just_happened:
                 return 0.0  # good!
             switch_just_happened = switch_happening
@@ -60,23 +60,25 @@ def test_heuristic_failure_finder():
             for block_state in state.blocks:
                 z = block_state.pose.position[2]
                 tallest_tower_height = max(tallest_tower_height, z)
-        print("tallest_tower_height:", tallest_tower_height)
-        return 100 - tallest_tower_height  # lower is better
+        assert tallest_tower_height <= 1.0
+        return 1.0 - tallest_tower_height  # lower is better
 
-    env = BlocksEnv(use_gui=True)  # TODO
+    env = BlocksEnv(use_gui=False)
     controller = BlocksController(123, env.scene_spec, safe_height=0.2)
     failure_monitor = BlocksFailureMonitor()
     failure_finder = HeuristicFailureFinder(
-        blocks_heuristic, seed=123, max_trajectory_length=250,
+        blocks_heuristic,
+        seed=123,
+        max_trajectory_length=1000,
     )
     result = failure_finder.run(env, controller, failure_monitor)
     assert result is not None
 
     # Uncomment to visualize.
-    from pathlib import Path
-    import imageio.v2 as iio
-    states, _ = result
-    imgs = [env._render_state(s) for s in states]
-    path = Path("videos") / "test-heuristic-failure-finding" / "heuristic_test.mp4"
-    path.parent.mkdir(exist_ok=True)
-    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    # from pathlib import Path
+    # import imageio.v2 as iio
+    # states, _ = result
+    # imgs = [env._render_state(s) for s in states]
+    # path = Path("videos") / "test-heuristic-failure-finding" / "heuristic_test.mp4"
+    # path.parent.mkdir(exist_ok=True)
+    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])

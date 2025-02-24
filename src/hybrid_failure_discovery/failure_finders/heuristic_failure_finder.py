@@ -1,10 +1,10 @@
 """A failure finder that uses a heuristic over trajectories."""
 
-import heapq as hq
 from typing import Callable, TypeAlias
 
 import numpy as np
 from gymnasium.core import ActType, ObsType
+from scipy.special import logsumexp
 from tomsutils.utils import sample_seed_from_rng
 
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
@@ -31,6 +31,7 @@ class HeuristicFailureFinder(FailureFinder):
         extension_termination_prob: float = 0.01,
         max_trajectory_length: int = 100,
         max_num_iters: int = 100,
+        boltzmann_temperature: float = 100.0,
         seed: int = 0,
     ) -> None:
         self._heuristic = heuristic
@@ -39,6 +40,7 @@ class HeuristicFailureFinder(FailureFinder):
         self._extension_termination_prob = extension_termination_prob
         self._max_trajectory_length = max_trajectory_length
         self._max_num_iters = max_num_iters
+        self._boltzmann_temperature = boltzmann_temperature
         self._seed = seed
         self._rng = np.random.default_rng(seed)
 
@@ -70,10 +72,11 @@ class HeuristicFailureFinder(FailureFinder):
                     if failure_found:
                         print(f"Found a failure after {itr+1} iterations")
                         return new_candidate
+                    # If the new_candidate is of max length, start over.
+                    if len(new_candidate[1]) >= self._max_trajectory_length:
+                        new_candidate = ([initial_states.sample()], [])
                     new_candidates.append(new_candidate)
             # Subselect from the new and old candidates.
-            # NOTE: we may need to rejuvenate here to avoid getting stuck.
-            # We probably want to think more carefully about this whole planner.
             pool = particles + new_candidates
             particles = self._subselect_particles(pool, self._num_particles)
         print("Failure finding failed.")
@@ -95,10 +98,7 @@ class HeuristicFailureFinder(FailureFinder):
             # NOTE: this makes a strong assumption that controllers are
             # deterministic!! Check this assumption in a hacky way.
             recovered_action = controller.step(states[t])
-            try:
-                assert env.actions_are_equal(recovered_action, actions[t])
-            except:
-                import ipdb; ipdb.set_trace()
+            assert env.actions_are_equal(recovered_action, actions[t])
             failure_found = failure_monitor.step(actions[t], states[t + 1])
             assert not failure_found, "Should have already returned"
         # Start the extension.
@@ -124,9 +124,10 @@ class HeuristicFailureFinder(FailureFinder):
     def _subselect_particles(
         self, pool: list[Trajectory], num_to_select: int
     ) -> list[Trajectory]:
-        # NOTE: we should probably compute these and store them along with the
-        # trajectories. I'm not sure about tiebreaking though.
-        priorities = [(self._heuristic(traj), idx) for idx, traj in enumerate(pool)]
-        # We should randomize this later with some temperature.
-        selection = hq.nsmallest(num_to_select, priorities)
-        return [pool[idx] for _, idx in selection]
+        heuristics = [self._heuristic(traj) for traj in pool]
+        log_probs = -self._boltzmann_temperature * np.array(heuristics)
+        norm_log_probs = log_probs - logsumexp(log_probs)
+        probs = np.exp(norm_log_probs)
+        idxs = list(range(len(pool)))
+        choices = self._rng.choice(idxs, size=num_to_select, replace=False, p=probs)
+        return [pool[idx] for idx in choices]

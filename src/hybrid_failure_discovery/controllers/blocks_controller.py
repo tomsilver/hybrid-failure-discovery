@@ -127,6 +127,7 @@ class BlocksOption:
         """Initiate the option."""
 
     def reset(self, initial_state: BlocksEnvState) -> None:
+        """Reset the option."""
         del initial_state
         self._rng = np.random.default_rng(self._seed)
 
