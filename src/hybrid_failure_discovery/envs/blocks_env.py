@@ -277,6 +277,7 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     ) -> EnumSpace[BlocksEnvState]:
 
         assert self.action_space.contains(action)
+        self._set_state(state)
 
         # Update robot arm joints.
         joint_arr = np.array(self.robot.get_joint_positions())
@@ -338,6 +339,13 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
         state = self._get_state()
 
         return EnumSpace([state])
+
+    def actions_are_equal(self, action1: BlocksAction, action2: BlocksAction) -> bool:
+        if not np.allclose(
+            action1.robot_arm_joint_delta, action2.robot_arm_joint_delta
+        ):
+            return False
+        return action1.gripper_action == action2.gripper_action
 
     def _get_reward_and_termination(
         self, state: BlocksEnvState, action: BlocksAction, next_state: BlocksEnvState
