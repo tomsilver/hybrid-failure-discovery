@@ -94,19 +94,18 @@ class HeuristicFailureFinder(FailureFinder):
         for t in range(len(actions)):
             # NOTE: this makes a strong assumption that controllers are
             # deterministic!! Check this assumption in a hacky way.
-            # TODO this is broken because starting planning in the middle of
-            # an option might be different from planning from the beginning.
             recovered_action = controller.step(states[t])
-            assert env.actions_are_equal(recovered_action, actions[t])
+            try:
+                assert env.actions_are_equal(recovered_action, actions[t])
+            except:
+                import ipdb; ipdb.set_trace()
             failure_found = failure_monitor.step(actions[t], states[t + 1])
             assert not failure_found, "Should have already returned"
         # Start the extension.
         state = states[-1]
         while len(actions) < self._max_trajectory_length:
             # Sample an action.
-            action_space = controller.step_action_space(state)
-            action_space.seed(sample_seed_from_rng(self._rng))
-            action = action_space.sample()
+            action = controller.step(state)
             # Update the state.
             next_states = env.get_next_states(state, action)
             next_states.seed(sample_seed_from_rng(self._rng))

@@ -67,7 +67,7 @@ def test_heuristic_failure_finder():
     controller = BlocksController(123, env.scene_spec, safe_height=0.2)
     failure_monitor = BlocksFailureMonitor()
     failure_finder = HeuristicFailureFinder(
-        blocks_heuristic, seed=123, max_trajectory_length=250
+        blocks_heuristic, seed=123, max_trajectory_length=250,
     )
     result = failure_finder.run(env, controller, failure_monitor)
     assert result is not None

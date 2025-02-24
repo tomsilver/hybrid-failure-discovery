@@ -133,7 +133,8 @@ class BlocksOption:
     def step(self, state: BlocksEnvState) -> BlocksAction:
         """Step the option."""
         del state  # not used right now
-        return self._plan.pop(0)
+        act = self._plan.pop(0)
+        return act
 
     def terminate(self, state) -> bool:
         """Check for termination."""
