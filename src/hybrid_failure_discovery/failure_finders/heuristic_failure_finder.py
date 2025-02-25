@@ -49,7 +49,7 @@ class HeuristicFailureFinder(FailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType],
         failure_monitor: FailureMonitor[ObsType, ActType],
-    ) -> tuple[list[ObsType], list[ActType]] | None:
+    ) -> Trajectory | None:
         # Initialize the particles (partial trajectories).
         initial_states = env.get_initial_states()
         initial_states.seed(sample_seed_from_rng(self._rng))

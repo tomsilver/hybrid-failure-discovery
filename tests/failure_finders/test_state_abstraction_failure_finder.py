@@ -4,7 +4,7 @@ from hybrid_failure_discovery.controllers.blocks_controller import (
     BlocksController,
 )
 from hybrid_failure_discovery.envs.blocks_env import (
-    BlocksEnv,
+    BlocksEnv, BlocksEnvState, BlocksEnvSceneSpec
 )
 from hybrid_failure_discovery.failure_finders.state_abstraction_failure_finder import (
     StateAbstractionFailureFinder,
@@ -18,11 +18,24 @@ def test_state_abstraction_failure_finder():
 
     # Test failure finder in blocks env.
 
+    env = BlocksEnv(use_gui=False)
+
     def get_blocks_state_abstraction(traj):
         """What blocks are on what blocks, and what is held."""
-        import ipdb; ipdb.set_trace()
+        thresh = 1e-3
+        height = env.scene_spec.block_half_extents[2]
+        state = traj[0][-1]
+        assert isinstance(state, BlocksEnvState)
+        held_block = state.held_block_name
+        on_relations = set()
+        for b1 in state.blocks:
+            x1, y1, z1 = b1.pose.position
+            for b2 in state.blocks:
+                x2, y2, z2 = b2.pose.position
+                if abs(x1 - x2) < thresh and abs(y1 - y2) < thresh and abs(z1 + height - z2) < thresh:
+                    on_relations.add((b1.name, b2.name))
+        return frozenset(on_relations), held_block
 
-    env = BlocksEnv(use_gui=False)
     controller = BlocksController(123, env.scene_spec, safe_height=0.2)
     failure_monitor = BlocksFailureMonitor()
     failure_finder = StateAbstractionFailureFinder(
