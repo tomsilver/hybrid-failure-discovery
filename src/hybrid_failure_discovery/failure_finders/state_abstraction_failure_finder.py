@@ -21,6 +21,7 @@ from hybrid_failure_discovery.utils import Trajectory, extend_trajectory_until_f
 
 AbstractState = TypeVar("AbstractState", bound=Hashable)
 AbstractFn: TypeAlias = Callable[[Trajectory], AbstractState]
+AbstractHeuristic: TypeAlias =  Callable[[list[AbstractState]], float]
 
 
 @dataclass
@@ -54,6 +55,7 @@ class StateAbstractionFailureFinder(FailureFinder):
     def __init__(
         self,
         abstract_fn: AbstractFn,
+        abstract_heuristic: AbstractHeuristic,
         max_trajectory_length: int = 100,
         max_num_iters: int = 1000,
         seed: int = 0,
@@ -61,6 +63,7 @@ class StateAbstractionFailureFinder(FailureFinder):
         b: float = 0.5,  # Progressive widening exponent
     ) -> None:
         self._abstract_fn = abstract_fn
+        self._abstract_heuristic = abstract_heuristic
         self._max_trajectory_length = max_trajectory_length
         self._max_num_iters = max_num_iters
         self._seed = seed
@@ -101,13 +104,13 @@ class StateAbstractionFailureFinder(FailureFinder):
     def _select_node_with_progressive_widening(
         self, nodes: list[_Node], itr: int
     ) -> _Node:
-        """Select a node to expand using progressive widening."""
+        # I'm not totally sure if this makes sense.
         threshold = self._k * itr**self._b
         eligible_nodes = [node for node in nodes if node.num_expansions <= threshold]
         assert len(eligible_nodes) > 0
         min_depth = min(n.depth for n in eligible_nodes)
         min_depth_eligible_nodes = [n for n in eligible_nodes if n.depth == min_depth]
-        return self._rng.choice(min_depth_eligible_nodes)
+        return min(min_depth_eligible_nodes, key=lambda n: self._abstract_heuristic(n.abstract_state_sequence))
 
     def _expand_node(
         self,

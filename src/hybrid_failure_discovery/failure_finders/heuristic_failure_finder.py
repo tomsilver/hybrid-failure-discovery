@@ -15,9 +15,7 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
     FailureFinder,
     FailureMonitor,
 )
-from hybrid_failure_discovery.utils import Trajectory, extend_trajectory_until_failure
-
-TrajectoryHeuristic: TypeAlias = Callable[[Trajectory], float]
+from hybrid_failure_discovery.utils import Trajectory, TrajectoryHeuristic, extend_trajectory_until_failure
 
 
 class HeuristicFailureFinder(FailureFinder):

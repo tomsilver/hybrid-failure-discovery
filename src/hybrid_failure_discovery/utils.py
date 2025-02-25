@@ -13,6 +13,7 @@ from hybrid_failure_discovery.envs.constraint_based_env_model import (
 from hybrid_failure_discovery.failure_monitors.failure_monitor import FailureMonitor
 
 Trajectory: TypeAlias = tuple[list[ObsType], list[ActType]]
+TrajectoryHeuristic: TypeAlias = Callable[[Trajectory], float]
 
 
 def extend_trajectory_until_failure(
