@@ -23,7 +23,7 @@ def extend_trajectory_until_failure(
     termination_fn: Callable[[Trajectory], bool],
     rng: np.random.Generator,
 ) -> tuple[Trajectory, bool]:
-    """Sample a trajectory extension until failure found or budget reached.
+    """Sample a trajectory extension until failure or termination.
 
     Returns True if a failure was found.
     """
