@@ -4,7 +4,9 @@ from hybrid_failure_discovery.controllers.blocks_controller import (
     BlocksController,
 )
 from hybrid_failure_discovery.envs.blocks_env import (
-    BlocksEnv, BlocksEnvState, BlocksEnvSceneSpec
+    BlocksEnv,
+    BlocksEnvSceneSpec,
+    BlocksEnvState,
 )
 from hybrid_failure_discovery.failure_finders.state_abstraction_failure_finder import (
     StateAbstractionFailureFinder,
@@ -12,6 +14,7 @@ from hybrid_failure_discovery.failure_finders.state_abstraction_failure_finder i
 from hybrid_failure_discovery.failure_monitors.blocks_failure_monitor import (
     BlocksFailureMonitor,
 )
+
 
 def test_state_abstraction_failure_finder():
     """Tests for state_abstraction_failure_finder.py."""
@@ -32,7 +35,11 @@ def test_state_abstraction_failure_finder():
             x1, y1, z1 = b1.pose.position
             for b2 in state.blocks:
                 x2, y2, z2 = b2.pose.position
-                if abs(x1 - x2) < thresh and abs(y1 - y2) < thresh and abs(z1 + 2 * height - z2) < thresh:
+                if (
+                    abs(x1 - x2) < thresh
+                    and abs(y1 - y2) < thresh
+                    and abs(z1 + 2 * height - z2) < thresh
+                ):
                     on_relations.add((b1.name, b2.name))
         return frozenset(on_relations), held_block
 
@@ -51,6 +58,10 @@ def test_state_abstraction_failure_finder():
     import imageio.v2 as iio
     states, _ = result
     imgs = [env._render_state(s) for s in states]
-    path = Path("videos") / "test-state-abstraction-failure-finding" / "state_abstraction_test.mp4"
+    path = (
+        Path("videos")
+        / "test-state-abstraction-failure-finding"
+        / "state_abstraction_test.mp4"
+    )
     path.parent.mkdir(exist_ok=True)
     iio.mimsave(path, imgs, fps=env.metadata["render_fps"])

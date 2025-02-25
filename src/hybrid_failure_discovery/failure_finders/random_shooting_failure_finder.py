@@ -15,7 +15,6 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
 from hybrid_failure_discovery.utils import Trajectory
 
 
-
 class RandomShootingFailureFinder(FailureFinder):
     """A naive failure finder that just randomly samples trajectories."""
 
