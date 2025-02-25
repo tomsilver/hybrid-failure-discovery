@@ -370,7 +370,8 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     ) -> RenderFrame | list[RenderFrame] | None:
         self._set_state(state)
         img = capture_image(
-            self.physics_client_id, **self.scene_spec.get_camera_kwargs()
+            self.physics_client_id,
+            **self.scene_spec.get_camera_kwargs(),
         )
 
         # In non-render mode, PyBullet does not render background correctly.

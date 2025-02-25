@@ -9,6 +9,7 @@ from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedEnvModel,
 )
 from hybrid_failure_discovery.failure_monitors.failure_monitor import FailureMonitor
+from hybrid_failure_discovery.utils import Trajectory
 
 
 class FailureFinder(abc.ABC):
@@ -20,5 +21,5 @@ class FailureFinder(abc.ABC):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType],
         failure_monitor: FailureMonitor[ObsType, ActType],
-    ) -> tuple[list[ObsType], list[ActType]] | None:
+    ) -> Trajectory | None:
         """Find a failure trajectory or return None."""

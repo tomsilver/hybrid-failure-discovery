@@ -12,6 +12,7 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
     FailureFinder,
     FailureMonitor,
 )
+from hybrid_failure_discovery.utils import Trajectory
 
 
 class RandomShootingFailureFinder(FailureFinder):
@@ -33,7 +34,7 @@ class RandomShootingFailureFinder(FailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType],
         failure_monitor: FailureMonitor[ObsType, ActType],
-    ) -> tuple[list[ObsType], list[ActType]] | None:
+    ) -> Trajectory | None:
         for traj_idx in range(self._max_num_trajectories):
             # Sample an initial state.
             initial_states = env.get_initial_states()
