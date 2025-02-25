@@ -5,7 +5,6 @@ from hybrid_failure_discovery.controllers.blocks_controller import (
 )
 from hybrid_failure_discovery.envs.blocks_env import (
     BlocksEnv,
-    BlocksEnvSceneSpec,
     BlocksEnvState,
 )
 from hybrid_failure_discovery.failure_finders.state_abstraction_failure_finder import (
@@ -46,34 +45,36 @@ def test_state_abstraction_failure_finder():
     def blocks_abstract_heuristic(abstract_state_sequence):
         """Encourage building as tall a tower as possible."""
         max_tower_height = 0
-        
+
+        def _get_tower_height(block, support_graph):
+            if block not in support_graph:
+                return 1
+            return 1 + max(
+                _get_tower_height(above, support_graph)
+                for above in support_graph[block]
+            )
+
         for abstract_state in abstract_state_sequence:
-            on_relations, held_block = abstract_state
-            
+            on_relations, _ = abstract_state
+
             # Build a graph representation of the "on" relationships
             support_graph = {}
             for top, bottom in on_relations:
                 if bottom not in support_graph:
                     support_graph[bottom] = []
                 support_graph[bottom].append(top)
-            
+
             # Find the tallest tower
-            def get_tower_height(block):
-                if block not in support_graph:
-                    return 1
-                return 1 + max(get_tower_height(above) for above in support_graph[block])
 
             # Compute the height for all base blocks
             for base_block in support_graph:
-                max_tower_height = max(max_tower_height, get_tower_height(base_block))
+                max_tower_height = max(
+                    max_tower_height, _get_tower_height(base_block, support_graph)
+                )
 
-        print("max_tower_height:", max_tower_height)
-        
         return 10 - max_tower_height
 
-    
-
-    controller = BlocksController(123, env.scene_spec, safe_height=0.15)
+    controller = BlocksController(123, env.scene_spec, safe_height=0.2)
     failure_monitor = BlocksFailureMonitor()
     failure_finder = StateAbstractionFailureFinder(
         get_blocks_state_abstraction,
@@ -85,14 +86,14 @@ def test_state_abstraction_failure_finder():
     assert result is not None
 
     # Uncomment to visualize.
-    from pathlib import Path
-    import imageio.v2 as iio
-    states, _ = result
-    imgs = [env._render_state(s) for s in states]
-    path = (
-        Path("videos")
-        / "test-state-abstraction-failure-finding"
-        / "state_abstraction_test.mp4"
-    )
-    path.parent.mkdir(exist_ok=True)
-    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    # from pathlib import Path
+    # import imageio.v2 as iio
+    # states, _ = result
+    # imgs = [env._render_state(s) for s in states]
+    # path = (
+    #     Path("videos")
+    #     / "test-state-abstraction-failure-finding"
+    #     / "state_abstraction_test.mp4"
+    # )
+    # path.parent.mkdir(exist_ok=True)
+    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])

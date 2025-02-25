@@ -1,6 +1,6 @@
 """Utility functions."""
 
-from typing import Callable, Hashable, TypeAlias, TypeVar
+from typing import Callable, TypeAlias
 
 import numpy as np
 from gymnasium.core import ActType, ObsType

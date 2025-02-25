@@ -1,7 +1,5 @@
 """A failure finder that uses a heuristic over trajectories."""
 
-from typing import Callable, TypeAlias
-
 import numpy as np
 from gymnasium.core import ActType, ObsType
 from scipy.special import logsumexp
@@ -15,7 +13,11 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
     FailureFinder,
     FailureMonitor,
 )
-from hybrid_failure_discovery.utils import Trajectory, TrajectoryHeuristic, extend_trajectory_until_failure
+from hybrid_failure_discovery.utils import (
+    Trajectory,
+    TrajectoryHeuristic,
+    extend_trajectory_until_failure,
+)
 
 
 class HeuristicFailureFinder(FailureFinder):

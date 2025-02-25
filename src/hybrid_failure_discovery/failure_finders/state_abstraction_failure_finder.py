@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Hashable, TypeAlias, TypeVar
+from typing import Any, Callable, Hashable, TypeAlias
 
 import numpy as np
 from gymnasium.core import ActType, ObsType
@@ -19,9 +19,9 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
 )
 from hybrid_failure_discovery.utils import Trajectory, extend_trajectory_until_failure
 
-AbstractState = TypeVar("AbstractState", bound=Hashable)
+AbstractState: TypeAlias = Hashable
 AbstractFn: TypeAlias = Callable[[Trajectory], AbstractState]
-AbstractHeuristic: TypeAlias =  Callable[[list[AbstractState]], float]
+AbstractHeuristic: TypeAlias = Callable[[list[AbstractState]], float]
 
 
 @dataclass
@@ -59,8 +59,6 @@ class StateAbstractionFailureFinder(FailureFinder):
         max_trajectory_length: int = 100,
         max_num_iters: int = 1000,
         seed: int = 0,
-        k: float = 1.0,  # Progressive widening scaling factor
-        b: float = 0.5,  # Progressive widening exponent
     ) -> None:
         self._abstract_fn = abstract_fn
         self._abstract_heuristic = abstract_heuristic
@@ -68,8 +66,6 @@ class StateAbstractionFailureFinder(FailureFinder):
         self._max_num_iters = max_num_iters
         self._seed = seed
         self._rng = np.random.default_rng(seed)
-        self._k = k
-        self._b = b
 
     def run(
         self,
@@ -82,13 +78,13 @@ class StateAbstractionFailureFinder(FailureFinder):
         initial_states = env.get_initial_states()
         initial_states.seed(sample_seed_from_rng(self._rng))
         initial_state = initial_states.sample()
-        trajectory = ([initial_state], [])
+        trajectory: Trajectory = ([initial_state], [])
         abstract_state = self._abstract_fn(trajectory)
         root = _Node([abstract_state], [trajectory])
         nodes = [root]
 
         for itr in range(self._max_num_iters):
-            node = self._select_node_with_progressive_widening(nodes, itr)
+            node = self._select_node(nodes)
             print(f"Expanding node with abstract states {node.abstract_state_sequence}")
 
             failure = self._expand_node(node, nodes, env, controller, failure_monitor)
@@ -101,14 +97,16 @@ class StateAbstractionFailureFinder(FailureFinder):
         print("Failure finding failed.")
         return None
 
-    def _select_node_with_progressive_widening(
-        self, nodes: list[_Node], itr: int
-    ) -> _Node:
+    def _select_node(self, nodes: list[_Node]) -> _Node:
         # I'm not totally sure if this makes sense.
-        threshold = self._k * itr**self._b
-        eligible_nodes = [node for node in nodes if node.num_expansions <= threshold]
-        assert len(eligible_nodes) > 0
-        return min(eligible_nodes, key=lambda n: (self._abstract_heuristic(n.abstract_state_sequence), n.depth, n.num_expansions))
+        return min(
+            nodes,
+            key=lambda n: (
+                self._abstract_heuristic(n.abstract_state_sequence),
+                n.num_expansions,
+                n.depth,
+            ),
+        )
 
     def _expand_node(
         self,
@@ -138,9 +136,9 @@ class StateAbstractionFailureFinder(FailureFinder):
         ]
         added_to_existing_node = False
 
-        for node in nodes:
-            if node.abstract_state_sequence == next_abstract_state_sequence:
-                node.trajectories.append(next_traj)
+        for n in nodes:
+            if n.abstract_state_sequence == next_abstract_state_sequence:
+                n.trajectories.append(next_traj)
                 added_to_existing_node = True
 
         if not added_to_existing_node:
