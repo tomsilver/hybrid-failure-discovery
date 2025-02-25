@@ -108,9 +108,7 @@ class StateAbstractionFailureFinder(FailureFinder):
         threshold = self._k * itr**self._b
         eligible_nodes = [node for node in nodes if node.num_expansions <= threshold]
         assert len(eligible_nodes) > 0
-        min_depth = min(n.depth for n in eligible_nodes)
-        min_depth_eligible_nodes = [n for n in eligible_nodes if n.depth == min_depth]
-        return min(min_depth_eligible_nodes, key=lambda n: self._abstract_heuristic(n.abstract_state_sequence))
+        return min(eligible_nodes, key=lambda n: (self._abstract_heuristic(n.abstract_state_sequence), n.depth, n.num_expansions))
 
     def _expand_node(
         self,

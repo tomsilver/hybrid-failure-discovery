@@ -73,7 +73,7 @@ def test_state_abstraction_failure_finder():
 
     
 
-    controller = BlocksController(123, env.scene_spec, safe_height=0.2)
+    controller = BlocksController(123, env.scene_spec, safe_height=0.15)
     failure_monitor = BlocksFailureMonitor()
     failure_finder = StateAbstractionFailureFinder(
         get_blocks_state_abstraction,
