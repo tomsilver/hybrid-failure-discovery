@@ -32,7 +32,7 @@ def test_state_abstraction_failure_finder():
             x1, y1, z1 = b1.pose.position
             for b2 in state.blocks:
                 x2, y2, z2 = b2.pose.position
-                if abs(x1 - x2) < thresh and abs(y1 - y2) < thresh and abs(z1 + height - z2) < thresh:
+                if abs(x1 - x2) < thresh and abs(y1 - y2) < thresh and abs(z1 + 2 * height - z2) < thresh:
                     on_relations.add((b1.name, b2.name))
         return frozenset(on_relations), held_block
 
@@ -47,10 +47,10 @@ def test_state_abstraction_failure_finder():
     assert result is not None
 
     # Uncomment to visualize.
-    # from pathlib import Path
-    # import imageio.v2 as iio
-    # states, _ = result
-    # imgs = [env._render_state(s) for s in states]
-    # path = Path("videos") / "test-state-abstraction-failure-finding" / "state_abstraction_test.mp4"
-    # path.parent.mkdir(exist_ok=True)
-    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    from pathlib import Path
+    import imageio.v2 as iio
+    states, _ = result
+    imgs = [env._render_state(s) for s in states]
+    path = Path("videos") / "test-state-abstraction-failure-finding" / "state_abstraction_test.mp4"
+    path.parent.mkdir(exist_ok=True)
+    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])

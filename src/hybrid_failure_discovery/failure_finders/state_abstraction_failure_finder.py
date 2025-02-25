@@ -16,7 +16,7 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
     FailureFinder,
     FailureMonitor,
 )
-from hybrid_failure_discovery.utils import Trajectory
+from hybrid_failure_discovery.utils import Trajectory, extend_trajectory_until_failure
 
 AbstractState = TypeVar("AbstractState", bound=Hashable)
 AbstractFn: TypeAlias = Callable[[Trajectory], AbstractState]
@@ -28,8 +28,12 @@ class _Node:
 
     abstract_state_sequence: list[AbstractState]
     trajectories: list[Trajectory]
-    children: list[_Node]
+    num_expansions: int = 0
 
+    @property
+    def depth(self) -> int:
+        """Depth of this node in the tree."""
+        return len(self.abstract_state_sequence)
 
 
 class StateAbstractionFailureFinder(FailureFinder):
@@ -39,7 +43,7 @@ class StateAbstractionFailureFinder(FailureFinder):
         self,
         abstract_fn: AbstractFn,
         max_trajectory_length: int = 100,
-        max_num_iters: int = 10,
+        max_num_iters: int = 100,
         seed: int = 0,
     ) -> None:
         self._abstract_fn = abstract_fn
@@ -61,25 +65,65 @@ class StateAbstractionFailureFinder(FailureFinder):
         initial_state = initial_states.sample()
         trajectory = ([initial_state], [])
         abstract_state = self._abstract_fn(trajectory)
-        root = _Node([abstract_state], [trajectory], children=[])
-        current_nodes = [root]
-        # Progressive widening: at every iteration, all nodes should have the
-        # same number of trajectories. But note that this is not necessarily the
-        # same number of children because of the abstract state grouping.
-        # Nonetheless, this is not going to scale well; we should add heuristics.
+        root = _Node([abstract_state], [trajectory])
+        nodes = [root]
+        # This is not going to scale well; we should add heuristics.
         for itr in range(self._max_num_iters):
-            next_nodes = list(current_nodes)
-            for node in current_nodes:
-                failure = self._expand_node(node, next_nodes, itr, env, controller, failure_monitor)
-                if failure is not None:
-                    print(f"Failure found after {itr} iterations")
-                    return failure
+            # TODO implement progressive widening here to implement a node
+            # to expand...
+            node = ...
+            print(f"Expanding node with abstract states {node.abstract_state_sequence}")
+            failure = self._expand_node(node, nodes, env, controller, failure_monitor)
+            node.num_expansions += 1
+            if failure is not None:
+                print(f"Failure found after {itr} iterations")
+                return failure
         print("Failure finding failed.")
         return None
 
-    def _expand_node(self, node: _Node, next_nodes: list[_Node], num_children: int,
+    def _expand_node(self, node: _Node, nodes: list[_Node],
                      env: ConstraintBasedEnvModel[ObsType, ActType],
                             controller: ConstraintBasedController[ObsType, ActType],
                             failure_monitor: FailureMonitor[ObsType, ActType],
                     ) -> Trajectory | None:
-        import ipdb; ipdb.set_trace()
+        traj = node.trajectories[self._rng.choice(len(node.trajectories))]
+        current_abstract_state = node.abstract_state_sequence[-1]
+        next_traj, next_abstract_state, failure_found = self._sample_extended_trajectory(traj, current_abstract_state, env, controller, failure_monitor)
+        if failure_found:
+            return next_traj
+        if next_traj is None:
+            raise NotImplementedError("Need to handle this case later")
+        # Add the next trajectory to an existing or new node.
+        next_abstract_state_sequence = node.abstract_state_sequence + [next_abstract_state]
+        added_to_existing_node = False
+        for node in nodes:
+            if node.abstract_state_sequence == next_abstract_state_sequence:
+                node.trajectories.append(next_traj)
+                added_to_existing_node = True
+        if not added_to_existing_node:
+            print(f"Adding new node with abstract states {next_abstract_state_sequence}")
+            new_node = _Node(next_abstract_state_sequence, [next_traj])
+            nodes.append(new_node)
+        return None
+
+    def _sample_extended_trajectory(self, current_traj: Trajectory,
+                                    current_abstract_state: AbstractState,
+                                    env: ConstraintBasedEnvModel[ObsType, ActType],
+        controller: ConstraintBasedController[ObsType, ActType],
+        failure_monitor: FailureMonitor[ObsType, ActType],
+    ) -> tuple[Trajectory | None, AbstractState, bool]:
+        
+        def _termination_fn(traj: Trajectory) -> bool:
+            if len(traj[1]) >= self._max_trajectory_length:
+                return True
+            next_abstract_state = self._abstract_fn(traj)
+            return next_abstract_state != current_abstract_state
+
+        next_traj, failure_found = extend_trajectory_until_failure(
+            current_traj, env, controller, failure_monitor, _termination_fn, self._rng
+        )
+        next_abstract_state = self._abstract_fn(next_traj)
+        if next_abstract_state == current_abstract_state:
+            return None, next_abstract_state, failure_found
+        return next_traj, next_abstract_state, failure_found
+    

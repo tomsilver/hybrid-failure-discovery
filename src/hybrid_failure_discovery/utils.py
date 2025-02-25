@@ -41,7 +41,7 @@ def extend_trajectory_until_failure(
         assert not failure_found, "Should have already returned"
     # Start the extension.
     state = states[-1]
-    while not termination_fn(trajectory):
+    while not termination_fn((states, actions)):
         # Sample an action.
         action = controller.step(state)
         # Update the state.
