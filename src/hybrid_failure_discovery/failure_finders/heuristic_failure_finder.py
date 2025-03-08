@@ -1,7 +1,5 @@
 """A failure finder that uses a heuristic over trajectories."""
 
-from typing import Callable, TypeAlias
-
 import numpy as np
 from gymnasium.core import ActType, ObsType
 from scipy.special import logsumexp
@@ -15,9 +13,11 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
     FailureFinder,
     FailureMonitor,
 )
-
-Trajectory: TypeAlias = tuple[list[ObsType], list[ActType]]
-TrajectoryHeuristic: TypeAlias = Callable[[Trajectory], float]
+from hybrid_failure_discovery.utils import (
+    Trajectory,
+    TrajectoryHeuristic,
+    extend_trajectory_until_failure,
+)
 
 
 class HeuristicFailureFinder(FailureFinder):
@@ -49,7 +49,7 @@ class HeuristicFailureFinder(FailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType],
         failure_monitor: FailureMonitor[ObsType, ActType],
-    ) -> tuple[list[ObsType], list[ActType]] | None:
+    ) -> Trajectory | None:
         # Initialize the particles (partial trajectories).
         initial_states = env.get_initial_states()
         initial_states.seed(sample_seed_from_rng(self._rng))
@@ -89,37 +89,15 @@ class HeuristicFailureFinder(FailureFinder):
         controller: ConstraintBasedController[ObsType, ActType],
         failure_monitor: FailureMonitor[ObsType, ActType],
     ) -> tuple[Trajectory, bool]:
-        states, actions = list(trajectory[0]), list(trajectory[1])
-        assert len(states) == len(actions) + 1
-        # Reset and fast forward the controller and failure monitor.
-        failure_monitor.reset(states[0])
-        controller.reset(states[0])
-        for t in range(len(actions)):
-            # NOTE: this makes a strong assumption that controllers are
-            # deterministic!! Check this assumption in a hacky way.
-            recovered_action = controller.step(states[t])
-            assert env.actions_are_equal(recovered_action, actions[t])
-            failure_found = failure_monitor.step(actions[t], states[t + 1])
-            assert not failure_found, "Should have already returned"
-        # Start the extension.
-        state = states[-1]
-        while len(actions) < self._max_trajectory_length:
-            # Sample an action.
-            action = controller.step(state)
-            # Update the state.
-            next_states = env.get_next_states(state, action)
-            next_states.seed(sample_seed_from_rng(self._rng))
-            state = next_states.sample()
-            # Extend the trajectory.
-            actions.append(action)
-            states.append(state)
-            # Check for failure.
-            if failure_monitor.step(action, state):
-                return (states, actions), True
-            # Check for termination.
-            if self._rng.uniform() < self._extension_termination_prob:
-                break
-        return (states, actions), False
+
+        def _termination_fn(traj: Trajectory) -> bool:
+            if len(traj[1]) >= self._max_trajectory_length:
+                return True
+            return self._rng.uniform() < self._extension_termination_prob
+
+        return extend_trajectory_until_failure(
+            trajectory, env, controller, failure_monitor, _termination_fn, self._rng
+        )
 
     def _subselect_particles(
         self, pool: list[Trajectory], num_to_select: int
