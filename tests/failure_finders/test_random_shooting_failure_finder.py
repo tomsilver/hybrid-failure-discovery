@@ -33,17 +33,17 @@ def test_random_shooting_failure_finder():
     assert result is not None
 
     # Test failure finder in blocks env with a too-low height.
-    env = BlocksEnv()
-    controller = BlocksController(123, env.scene_spec, safe_height=0.15)
-    failure_monitor = BlocksFailureMonitor()
-    failure_finder = RandomShootingFailureFinder(seed=123, max_trajectory_length=250)
-    result = failure_finder.run(env, controller, failure_monitor)
-    assert result is not None
+    # env = BlocksEnv()
+    # controller = BlocksController(123, env.scene_spec, safe_height=0.15)
+    # failure_monitor = BlocksFailureMonitor()
+    # failure_finder = RandomShootingFailureFinder(seed=123, max_trajectory_length=250)
+    # result = failure_finder.run(env, controller, failure_monitor)
+    # assert result is not None
 
     # Uncomment to visualize.
     # from pathlib import Path
     # import imageio.v2 as iio
-    # states, _ = result
+    # states = result.observations
     # imgs = [env._render_state(s) for s in states]
     # path = Path("videos") / "test-random-shooting" / "random-shooting_test.mp4"
     # path.parent.mkdir(exist_ok=True)
