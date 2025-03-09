@@ -1,6 +1,7 @@
 """Utility functions."""
 
-from typing import Callable, TypeAlias
+from dataclasses import dataclass
+from typing import Callable, Generic, TypeAlias
 
 import numpy as np
 from gymnasium.core import ActType, ObsType
@@ -12,7 +13,15 @@ from hybrid_failure_discovery.envs.constraint_based_env_model import (
 )
 from hybrid_failure_discovery.failure_monitors.failure_monitor import FailureMonitor
 
-Trajectory: TypeAlias = tuple[list[ObsType], list[ActType]]
+
+@dataclass
+class Trajectory(Generic[ObsType, ActType]):
+    """A trajectory is a sequence of observations and actions."""
+
+    observations: list[ObsType]
+    actions: list[ActType]
+
+
 TrajectoryHeuristic: TypeAlias = Callable[[Trajectory], float]
 
 
@@ -28,7 +37,7 @@ def extend_trajectory_until_failure(
 
     Returns True if a failure was found.
     """
-    states, actions = list(trajectory[0]), list(trajectory[1])
+    states, actions = list(trajectory.observations), list(trajectory.actions)
     assert len(states) == len(actions) + 1
     # Reset and fast forward the controller and failure monitor.
     failure_monitor.reset(states[0])
@@ -42,7 +51,7 @@ def extend_trajectory_until_failure(
         assert not failure_found, "Should have already returned"
     # Start the extension.
     state = states[-1]
-    while not termination_fn((states, actions)):
+    while not termination_fn(trajectory):
         # Sample an action.
         action = controller.step(state)
         # Update the state.
@@ -54,5 +63,5 @@ def extend_trajectory_until_failure(
         states.append(state)
         # Check for failure.
         if failure_monitor.step(action, state):
-            return (states, actions), True
-    return (states, actions), False
+            return Trajectory(states, actions), True
+    return Trajectory(states, actions), False

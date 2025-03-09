@@ -50,9 +50,8 @@ def test_heuristic_failure_finder():
 
     def blocks_heuristic(traj):
         """Encourage building as tall a tower as possible."""
-        states, _ = traj
         tallest_tower_height = 0.0
-        for state in states:
+        for state in traj.observations:
             # Don't count states where a block is held.
             if state.held_block_name is not None:
                 continue

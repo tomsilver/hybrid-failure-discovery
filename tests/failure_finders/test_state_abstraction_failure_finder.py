@@ -26,7 +26,7 @@ def test_state_abstraction_failure_finder():
         """What blocks are on what blocks, and what is held."""
         thresh = 1e-3
         height = env.scene_spec.block_half_extents[2]
-        state = traj[0][-1]
+        state = traj.observations[-1]
         assert isinstance(state, BlocksEnvState)
         held_block = state.held_block_name
         on_relations = set()

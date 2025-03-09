@@ -66,6 +66,6 @@ class RandomShootingFailureFinder(FailureFinder):
             # Failure found, we're done!
             if failure_found:
                 print(f"Found a failure after {traj_idx+1} trajectory samples")
-                return states, actions
+                return Trajectory(states, actions)
         print("Failure finding failed.")
         return None

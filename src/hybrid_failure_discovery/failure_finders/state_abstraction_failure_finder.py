@@ -78,7 +78,7 @@ class StateAbstractionFailureFinder(FailureFinder):
         initial_states = env.get_initial_states()
         initial_states.seed(sample_seed_from_rng(self._rng))
         initial_state = initial_states.sample()
-        trajectory: Trajectory = ([initial_state], [])
+        trajectory: Trajectory = Trajectory([initial_state], [])
         abstract_state = self._abstract_fn(trajectory)
         root = _Node([abstract_state], [trajectory])
         nodes = [root]
@@ -160,7 +160,7 @@ class StateAbstractionFailureFinder(FailureFinder):
     ) -> tuple[Trajectory | None, AbstractState, bool]:
 
         def _termination_fn(traj: Trajectory) -> bool:
-            if len(traj[1]) >= self._max_trajectory_length:
+            if len(traj.actions) >= self._max_trajectory_length:
                 return True
             next_abstract_state = self._abstract_fn(traj)
             return next_abstract_state != current_abstract_state

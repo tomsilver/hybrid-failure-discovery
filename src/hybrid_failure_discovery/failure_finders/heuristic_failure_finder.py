@@ -54,7 +54,8 @@ class HeuristicFailureFinder(FailureFinder):
         initial_states = env.get_initial_states()
         initial_states.seed(sample_seed_from_rng(self._rng))
         particles: list[Trajectory] = [
-            ([initial_states.sample()], []) for _ in range(self._num_particles)
+            Trajectory([initial_states.sample()], [])
+            for _ in range(self._num_particles)
         ]
         # Main loop.
         for itr in range(self._max_num_iters):
@@ -73,8 +74,8 @@ class HeuristicFailureFinder(FailureFinder):
                         print(f"Found a failure after {itr+1} iterations")
                         return new_candidate
                     # If the new_candidate is of max length, start over.
-                    if len(new_candidate[1]) >= self._max_trajectory_length:
-                        new_candidate = ([initial_states.sample()], [])
+                    if len(new_candidate.actions) >= self._max_trajectory_length:
+                        new_candidate = Trajectory([initial_states.sample()], [])
                     new_candidates.append(new_candidate)
             # Subselect from the new and old candidates.
             pool = particles + new_candidates
@@ -91,7 +92,7 @@ class HeuristicFailureFinder(FailureFinder):
     ) -> tuple[Trajectory, bool]:
 
         def _termination_fn(traj: Trajectory) -> bool:
-            if len(traj[1]) >= self._max_trajectory_length:
+            if len(traj.actions) >= self._max_trajectory_length:
                 return True
             return self._rng.uniform() < self._extension_termination_prob
 
