@@ -58,7 +58,7 @@ class BlocksEnvState:
 class BlocksAction:
     """An action in the blocks environment."""
 
-    robot_arm_joint_delta: JointPositions
+    robot_joints: JointPositions
     gripper_action: int  # -1 for close, 0 for no change, 1 for open
 
 
@@ -277,12 +277,12 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     ) -> EnumSpace[BlocksEnvState]:
 
         assert self.action_space.contains(action)
-        self._set_state(state)
+        self.set_state(state)
 
         # Update robot arm joints.
         joint_arr = np.array(self.robot.get_joint_positions())
         # Assume that first 7 entries are arm.
-        joint_arr[:7] += action.robot_arm_joint_delta
+        joint_arr[:7] = action.robot_joints
 
         # Update gripper if required.
         if action.gripper_action == 1:
@@ -300,7 +300,7 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
                     np.square(np.subtract(end_effector_position, block_position))
                 )
                 # Grasp successful.
-                if dist < 1e-6:
+                if dist < 1e-3:
                     self.current_grasp_transform = multiply_poses(
                         world_to_robot.invert(), world_to_block
                     )
@@ -337,13 +337,12 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
 
         # Get the next state.
         state = self._get_state()
+        assert np.allclose(state.robot.joint_positions, joint_arr)
 
         return EnumSpace([state])
 
     def actions_are_equal(self, action1: BlocksAction, action2: BlocksAction) -> bool:
-        if not np.allclose(
-            action1.robot_arm_joint_delta, action2.robot_arm_joint_delta
-        ):
+        if not np.allclose(action1.robot_joints, action2.robot_joints):
             return False
         return action1.gripper_action == action2.gripper_action
 
@@ -352,7 +351,11 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     ) -> tuple[float, bool]:
         return 0.0, False
 
-    def _set_state(self, state: BlocksEnvState) -> None:
+    def set_state(self, state: BlocksEnvState) -> None:
+        """Set the environment state.
+
+        Should only be used for simulation.
+        """
         # Set robot state.
         self.robot.set_joints(state.robot.joint_positions)
 
@@ -368,7 +371,7 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     def _render_state(
         self, state: BlocksEnvState
     ) -> RenderFrame | list[RenderFrame] | None:
-        self._set_state(state)
+        self.set_state(state)
         img = capture_image(
             self.physics_client_id,
             **self.scene_spec.get_camera_kwargs(),

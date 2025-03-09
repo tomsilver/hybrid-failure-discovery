@@ -5,8 +5,10 @@ from typing import Callable, Generic
 
 from gymnasium.core import ActType, ObsType
 
+from hybrid_failure_discovery.structs import CommandType
 
-class FailureMonitor(Generic[ObsType, ActType]):
+
+class FailureMonitor(Generic[ObsType, ActType, CommandType]):
     """Monitors a trajectory for failures."""
 
     @abc.abstractmethod
@@ -14,11 +16,11 @@ class FailureMonitor(Generic[ObsType, ActType]):
         """Reset the monitor given a new initial state."""
 
     @abc.abstractmethod
-    def step(self, action: ActType, state: ObsType) -> bool:
+    def step(self, command: CommandType, action: ActType, state: ObsType) -> bool:
         """Return true if failure and advance any internal state."""
 
 
-class MemorylessStateFailureMonitor(FailureMonitor[ObsType, ActType]):
+class MemorylessStateFailureMonitor(FailureMonitor[ObsType, ActType, CommandType]):
     """A failure finder that only checks a given state."""
 
     def __init__(self, state_check: Callable[[ObsType], bool]) -> None:
@@ -27,5 +29,5 @@ class MemorylessStateFailureMonitor(FailureMonitor[ObsType, ActType]):
     def reset(self, initial_state: ObsType) -> None:
         pass
 
-    def step(self, action: ActType, state: ObsType) -> bool:
+    def step(self, command: CommandType, action: ActType, state: ObsType) -> bool:
         return self._state_check(state)
