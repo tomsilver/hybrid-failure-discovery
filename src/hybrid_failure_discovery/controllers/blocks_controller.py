@@ -3,7 +3,7 @@
 import abc
 from dataclasses import dataclass
 from functools import partial
-from typing import Any
+from typing import Any, Callable, Sequence
 
 import numpy as np
 from gymnasium.spaces import Space
@@ -15,8 +15,18 @@ from pybullet_helpers.motion_planning import (
     smoothly_follow_end_effector_path,
 )
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
-from relational_structs import GroundAtom, Object, Predicate, Type
-from task_then_motion_planning.structs import Perceiver
+from relational_structs import (
+    GroundAtom,
+    GroundOperator,
+    LiftedAtom,
+    LiftedOperator,
+    Object,
+    Predicate,
+    Type,
+    Variable,
+)
+from task_then_motion_planning.planning import TaskThenMotionPlanner
+from task_then_motion_planning.structs import LiftedOperatorSkill, Perceiver, Skill
 from tomsutils.spaces import EnumSpace, FunctionalSpace
 
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
@@ -59,7 +69,7 @@ Clear = Predicate("Clear", [object_type])
 PREDICATES = {IsMovable, NotIsMovable, On, NothingOn, Holding, GripperEmpty, Clear}
 
 
-class PyBulletBlocksPerceiver(Perceiver[BlocksEnvState]):
+class BlocksPerceiver(Perceiver[BlocksEnvState]):
     """A perceiver for blocks environment."""
 
     def __init__(self, sim: BlocksEnv) -> None:
@@ -206,6 +216,337 @@ class PyBulletBlocksPerceiver(Perceiver[BlocksEnvState]):
 
 
 ################################################################################
+#                                 Operators                                    #
+################################################################################
+
+Robot = Variable("?robot", robot_type)
+Obj = Variable("?obj", object_type)
+Surface = Variable("?surface", object_type)
+
+PickOperator = LiftedOperator(
+    "Pick",
+    [Robot, Obj, Surface],
+    preconditions={
+        LiftedAtom(IsMovable, [Obj]),
+        LiftedAtom(NotIsMovable, [Surface]),
+        LiftedAtom(GripperEmpty, [Robot]),
+        LiftedAtom(NothingOn, [Obj]),
+        LiftedAtom(On, [Obj, Surface]),
+    },
+    add_effects={
+        LiftedAtom(Holding, [Robot, Obj]),
+    },
+    delete_effects={
+        LiftedAtom(GripperEmpty, [Robot]),
+        LiftedAtom(On, [Obj, Surface]),
+    },
+)
+
+PlaceOperator = LiftedOperator(
+    "Place",
+    [Robot, Obj, Surface],
+    preconditions={
+        LiftedAtom(Holding, [Robot, Obj]),
+        LiftedAtom(NotIsMovable, [Surface]),
+    },
+    add_effects={
+        LiftedAtom(On, [Obj, Surface]),
+        LiftedAtom(GripperEmpty, [Robot]),
+    },
+    delete_effects={
+        LiftedAtom(Holding, [Robot, Obj]),
+    },
+)
+
+UnstackOperator = LiftedOperator(
+    "Unstack",
+    [Robot, Obj, Surface],
+    preconditions={
+        LiftedAtom(IsMovable, [Obj]),
+        LiftedAtom(IsMovable, [Surface]),
+        LiftedAtom(GripperEmpty, [Robot]),
+        LiftedAtom(NothingOn, [Obj]),
+        LiftedAtom(On, [Obj, Surface]),
+    },
+    add_effects={
+        LiftedAtom(Holding, [Robot, Obj]),
+        LiftedAtom(NothingOn, [Surface]),
+    },
+    delete_effects={
+        LiftedAtom(GripperEmpty, [Robot]),
+        LiftedAtom(On, [Obj, Surface]),
+    },
+)
+
+StackOperator = LiftedOperator(
+    "Stack",
+    [Robot, Obj, Surface],
+    preconditions={
+        LiftedAtom(Holding, [Robot, Obj]),
+        LiftedAtom(NothingOn, [Surface]),
+        LiftedAtom(IsMovable, [Surface]),
+    },
+    add_effects={
+        LiftedAtom(On, [Obj, Surface]),
+        LiftedAtom(GripperEmpty, [Robot]),
+    },
+    delete_effects={
+        LiftedAtom(NothingOn, [Surface]),
+        LiftedAtom(Holding, [Robot, Obj]),
+    },
+)
+
+OPERATORS = {
+    PickOperator,
+    PlaceOperator,
+    UnstackOperator,
+    StackOperator,
+}
+
+################################################################################
+#                                  Skills                                      #
+################################################################################
+
+
+class BlocksSkill(LiftedOperatorSkill[BlocksEnvState, BlocksAction]):
+    """A partial controller that initiates and then terminates, e.g., pick."""
+
+    def __init__(
+        self,
+        seed: int,
+        robot: FingeredSingleArmPyBulletRobot,
+        scene_spec: BlocksEnvSceneSpec,
+        safe_height: float,
+        max_smoothing_iters_per_step: int = 1,
+    ) -> None:
+        self._seed = seed
+        self._robot = robot
+        self._scene_spec = scene_spec
+        self._safe_height = safe_height
+        self._max_smoothing_iters_per_step = max_smoothing_iters_per_step
+        self._rng = np.random.default_rng(seed)
+        self._current_plan: list[BlocksAction] = []
+        self._joint_distance_fn = create_joint_distance_fn(self._robot)
+        super().__init__()
+
+    def reset(self, ground_operator: GroundOperator) -> None:
+        self._current_plan = []
+        return super().reset(ground_operator)
+
+    def _get_action_given_objects(
+        self, objects: Sequence[Object], obs: BlocksEnvState
+    ) -> BlocksAction:
+        if not self._current_plan:
+            self._current_plan = self._get_plan_given_objects(objects, obs)
+        return self._current_plan.pop(0)
+
+    @abc.abstractmethod
+    def _get_plan_given_objects(
+        self, objects: Sequence[Object], obs: BlocksEnvState
+    ) -> list[BlocksAction]:
+        """Run planning given the objects and state."""
+
+
+def _motion_plan_to_plan(motion_plan: list[JointPositions]) -> list[BlocksAction]:
+    plan = []
+    for t in range(len(motion_plan) - 1):
+        delta = np.subtract(motion_plan[t + 1], motion_plan[t]).tolist()[:7]
+        action = BlocksAction(delta, gripper_action=0)
+        plan.append(action)
+    return plan
+
+
+def _get_pick_block_plan(
+    block_name: str,
+    state: BlocksEnvState,
+    robot: FingeredSingleArmPyBulletRobot,
+    safe_height: float,
+    joint_distance_fn: Callable[[JointPositions, JointPositions], float],
+    max_smoothing_iters_per_step: int,
+) -> list[BlocksAction]:
+    # Reset the simulated robot to the given state.
+    robot.set_joints(state.robot.joint_positions)
+
+    start_pose = robot.get_end_effector_pose()
+    block_pose = state.get_block_state(block_name).pose
+    waypoint1 = Pose(
+        (start_pose.position[0], start_pose.position[1], safe_height),
+        start_pose.orientation,
+    )
+    waypoint2 = Pose(
+        (block_pose.position[0], block_pose.position[1], safe_height),
+        start_pose.orientation,
+    )
+    waypoint3 = Pose(block_pose.position, start_pose.orientation)
+
+    waypoints = [
+        start_pose,
+        waypoint1,
+        waypoint2,
+        waypoint3,
+    ]
+
+    end_effector_path: list[Pose] = []
+    for p1, p2 in zip(waypoints[:-1], waypoints[1:], strict=True):
+        end_effector_path.extend(iter_between_poses(p1, p2))
+
+    motion_plan = smoothly_follow_end_effector_path(
+        robot,
+        end_effector_path,
+        state.robot.joint_positions,
+        collision_ids=set(),
+        joint_distance_fn=joint_distance_fn,
+        max_smoothing_iters_per_step=max_smoothing_iters_per_step,
+    )
+
+    plan: list[BlocksAction] = []
+    plan.append(BlocksAction([0.0] * 7, gripper_action=1))  # open
+    plan.extend(_motion_plan_to_plan(motion_plan))
+    plan.append(BlocksAction([0.0] * 7, gripper_action=-1))  # close
+    return plan
+
+
+def _get_place_block_plan(
+    block_name: str,
+    state: BlocksEnvState,
+    robot: FingeredSingleArmPyBulletRobot,
+    safe_height: float,
+    block_height: float,
+    joint_distance_fn: Callable[[JointPositions, JointPositions], float],
+    max_smoothing_iters_per_step: int,
+) -> list[BlocksAction]:
+    # Reset the simulated robot to the given state.
+    robot.set_joints(state.robot.joint_positions)
+
+    start_pose = robot.get_end_effector_pose()
+    block_pose = state.get_block_state(block_name).pose
+    waypoint1 = Pose(
+        (start_pose.position[0], start_pose.position[1], safe_height),
+        start_pose.orientation,
+    )
+    waypoint2 = Pose(
+        (block_pose.position[0], block_pose.position[1], safe_height),
+        start_pose.orientation,
+    )
+    waypoint3 = Pose(
+        (
+            block_pose.position[0],
+            block_pose.position[1],
+            block_pose.position[2] + block_height,
+        ),
+        start_pose.orientation,
+    )
+
+    waypoints = [
+        start_pose,
+        waypoint1,
+        waypoint2,
+        waypoint3,
+    ]
+
+    end_effector_path: list[Pose] = []
+    for p1, p2 in zip(waypoints[:-1], waypoints[1:], strict=True):
+        end_effector_path.extend(iter_between_poses(p1, p2))
+
+    motion_plan = smoothly_follow_end_effector_path(
+        robot,
+        end_effector_path,
+        state.robot.joint_positions,
+        collision_ids=set(),
+        joint_distance_fn=joint_distance_fn,
+        max_smoothing_iters_per_step=max_smoothing_iters_per_step,
+    )
+
+    plan = _motion_plan_to_plan(motion_plan)
+    plan.append(BlocksAction([0.0] * 7, gripper_action=1))  # open
+    return plan
+
+
+class PickBlockSkill(BlocksSkill):
+    """Pick up a block."""
+
+    def _get_lifted_operator(self) -> LiftedOperator:
+        return PickOperator
+
+    def _get_plan_given_objects(
+        self, objects: Sequence[Object], obs: BlocksEnvState
+    ) -> list[BlocksAction]:
+        _, block, _ = objects
+        return _get_pick_block_plan(
+            block.name,
+            obs,
+            self._robot,
+            self._safe_height,
+            self._joint_distance_fn,
+            self._max_smoothing_iters_per_step,
+        )
+
+
+class UnstackBlockSkill(BlocksSkill):
+    """Unstack a block."""
+
+    def _get_lifted_operator(self) -> LiftedOperator:
+        return UnstackOperator
+
+    def _get_plan_given_objects(
+        self, objects: Sequence[Object], obs: BlocksEnvState
+    ) -> list[BlocksAction]:
+        _, block, _ = objects
+        return _get_pick_block_plan(
+            block.name,
+            obs,
+            self._robot,
+            self._safe_height,
+            self._joint_distance_fn,
+            self._max_smoothing_iters_per_step,
+        )
+
+
+class StackBlockSkill(BlocksSkill):
+    """Stack a block on another block."""
+
+    def _get_lifted_operator(self) -> LiftedOperator:
+        return StackOperator
+
+    def _get_plan_given_objects(
+        self, objects: Sequence[Object], obs: BlocksEnvState
+    ) -> list[BlocksAction]:
+        _, _, block = objects
+        block_height = 2 * self._scene_spec.block_half_extents[2]
+        return _get_place_block_plan(
+            block.name,
+            obs,
+            self._robot,
+            self._safe_height,
+            block_height,
+            self._joint_distance_fn,
+            self._max_smoothing_iters_per_step,
+        )
+
+
+class PlaceBlockOnTableSkill(BlocksSkill):
+    """Place a block on the table."""
+
+    def _get_lifted_operator(self) -> LiftedOperator:
+        return PlaceOperator
+
+    def _get_plan_given_objects(
+        self, objects: Sequence[Object], obs: BlocksEnvState
+    ) -> list[BlocksAction]:
+        _, _, block = objects
+        table_height = 2 * self._scene_spec.table_half_extents[2]
+        return _get_place_block_plan(
+            block.name,
+            obs,
+            self._robot,
+            self._safe_height,
+            table_height,
+            self._joint_distance_fn,
+            self._max_smoothing_iters_per_step,
+        )
+
+
+################################################################################
 #                                Controller                                    #
 ################################################################################
 
@@ -225,270 +566,68 @@ class BlocksController(
         super().__init__(seed)
         self._scene_spec = scene_spec
 
-        # Create a simulated robot for kinematics and such.
-        self._sim_robot = BlocksEnv(scene_spec, seed=seed).robot
+        # Create a simulator for kinematics etc.
+        self._sim = BlocksEnv(scene_spec, seed=seed)
 
-        # Create options.
-        pick_options = [
-            PickBlockOption(
-                f"block{i}",
+        # Create the perceiver.
+        self._perceiver = BlocksPerceiver(self._sim)
+
+        # Create the skills.
+        skill_classes = {
+            PickBlockSkill,
+            PlaceBlockOnTableSkill,
+            UnstackBlockSkill,
+            StackBlockSkill,
+        }
+        self._skills: set[Skill[BlocksEnvState, BlocksAction]] = {
+            c(
                 seed,
-                self._sim_robot,
+                self._sim.robot,
                 scene_spec,
                 safe_height,
-                max_smoothing_iters_per_step,
-            )
-            for i in range(scene_spec.num_blocks)
-        ]
-        stack_options = [
-            StackBlockOption(
-                f"block{i}",
-                seed,
-                self._sim_robot,
-                scene_spec,
-                safe_height,
-                max_smoothing_iters_per_step,
-            )
-            for i in range(scene_spec.num_blocks)
-        ]
+                max_smoothing_iters_per_step=max_smoothing_iters_per_step,
+            )  # type: ignore
+            for c in skill_classes
+        }
 
-        self._options = pick_options + stack_options
+        # Create the planner.
+        self._planner = TaskThenMotionPlanner(
+            TYPES,
+            PREDICATES,
+            self._perceiver,
+            OPERATORS,
+            self._skills,
+            planner_id="pyperplan",
+        )
 
-        # Track the current option.
-        self._current_option: BlocksOption | None = None
+        # Track the current goal.
+        self._current_goal: BlocksCommand | None = None
 
     def reset(self, initial_state: BlocksEnvState) -> None:
-        self._current_option = None
         self._np_random = np.random.default_rng(self._seed)
-        for option in self._options:
-            option.reset(initial_state)
+        # NOTE: the planner is not yet reset because we don't have a goal until
+        # a command is issued.
+        self._current_goal = None
 
     def step_action_space(
         self, state: BlocksEnvState, command: BlocksCommand
     ) -> Space[BlocksAction]:
         return FunctionalSpace(
             contains_fn=lambda x: isinstance(x, BlocksAction),
-            sample_fn=partial(self._sample_action, state),
+            sample_fn=partial(self._get_action, state, command),
         )
 
-    def _sample_action(
-        self, state: BlocksEnvState, rng: np.random.Generator
+    def _get_action(
+        self,
+        state: BlocksEnvState,
+        command: BlocksCommand,
     ) -> BlocksAction:
-        if self._current_option is None or self._current_option.terminate(state):
-            # Sample a new initiable option.
-            self._current_option = None
-            idxs = list(range(len(self._options)))
-            rng.shuffle(idxs)
-            ordered_options = [self._options[i] for i in idxs]
-            for option in ordered_options:
-                if option.can_initiate(state):
-                    self._current_option = option
-                    self._current_option.initiate(state)
-                    break
-            assert self._current_option is not None
-        return self._current_option.step(state)
+        if self._current_goal != command:
+            # Replan.
+            info = {"goal": command}
+            self._planner.reset(state, info)
+        return self._planner.step(state)
 
     def get_command_space(self) -> Space[BlocksCommand]:
+        # TODO update to include actual towers
         return EnumSpace([BlocksCommand([])])
-
-
-class BlocksOption:
-    """A partial controller that initiates and then terminates, e.g., pick."""
-
-    def __init__(
-        self,
-        seed: int,
-        robot: FingeredSingleArmPyBulletRobot,
-        scene_spec: BlocksEnvSceneSpec,
-        safe_height: float,
-        max_smoothing_iters_per_step: int = 1,
-    ) -> None:
-        self._seed = seed
-        self._robot = robot
-        self._scene_spec = scene_spec
-        self._safe_height = safe_height
-        self._max_smoothing_iters_per_step = max_smoothing_iters_per_step
-        self._rng = np.random.default_rng(seed)
-        self._plan: list[BlocksAction] = []
-        self._joint_distance_fn = create_joint_distance_fn(self._robot)
-
-    @abc.abstractmethod
-    def can_initiate(self, state: BlocksEnvState) -> bool:
-        """Whether the option could be initiated in the given state."""
-
-    @abc.abstractmethod
-    def initiate(self, state: BlocksEnvState) -> None:
-        """Initiate the option."""
-
-    def reset(self, initial_state: BlocksEnvState) -> None:
-        """Reset the option."""
-        del initial_state
-        self._rng = np.random.default_rng(self._seed)
-
-    def step(self, state: BlocksEnvState) -> BlocksAction:
-        """Step the option."""
-        del state  # not used right now
-        act = self._plan.pop(0)
-        return act
-
-    def terminate(self, state) -> bool:
-        """Check for termination."""
-        del state  # not used right now
-        return not self._plan
-
-    def _motion_plan_to_plan(
-        self, motion_plan: list[JointPositions]
-    ) -> list[BlocksAction]:
-        plan = []
-        for t in range(len(motion_plan) - 1):
-            delta = np.subtract(motion_plan[t + 1], motion_plan[t]).tolist()[:7]
-            action = BlocksAction(delta, gripper_action=0)
-            plan.append(action)
-        return plan
-
-
-class PickBlockOption(BlocksOption):
-    """A partial controller for picking an exposed block."""
-
-    def __init__(self, block_name: str, *args, **kwargs) -> None:
-        self._block_name = block_name
-        super().__init__(*args, **kwargs)
-
-    def can_initiate(self, state: BlocksEnvState) -> bool:
-        # Robot hand must be empty.
-        if state.held_block_name:
-            return False
-
-        # The block must not have anything on top of it.
-        return _block_has_nothing_above(self._block_name, state, self._scene_spec)
-
-    def initiate(self, state: BlocksEnvState) -> None:
-        # Reset the simulated robot to the given state.
-        self._robot.set_joints(state.robot.joint_positions)
-
-        start_pose = self._robot.get_end_effector_pose()
-        block_pose = state.get_block_state(self._block_name).pose
-        waypoint1 = Pose(
-            (start_pose.position[0], start_pose.position[1], self._safe_height),
-            start_pose.orientation,
-        )
-        waypoint2 = Pose(
-            (block_pose.position[0], block_pose.position[1], self._safe_height),
-            start_pose.orientation,
-        )
-        waypoint3 = Pose(block_pose.position, start_pose.orientation)
-
-        waypoints = [
-            start_pose,
-            waypoint1,
-            waypoint2,
-            waypoint3,
-        ]
-
-        end_effector_path: list[Pose] = []
-        for p1, p2 in zip(waypoints[:-1], waypoints[1:], strict=True):
-            end_effector_path.extend(iter_between_poses(p1, p2))
-
-        motion_plan = smoothly_follow_end_effector_path(
-            self._robot,
-            end_effector_path,
-            state.robot.joint_positions,
-            collision_ids=set(),
-            joint_distance_fn=self._joint_distance_fn,
-            max_smoothing_iters_per_step=self._max_smoothing_iters_per_step,
-        )
-
-        self._plan.append(BlocksAction([0.0] * 7, gripper_action=1))  # open
-        self._plan = self._motion_plan_to_plan(motion_plan)
-        self._plan.append(BlocksAction([0.0] * 7, gripper_action=-1))  # close
-
-
-class StackBlockOption(BlocksOption):
-    """A partial controller for stacking a held block on an exposed block."""
-
-    def __init__(self, block_name: str, *args, **kwargs) -> None:
-        self._block_name = block_name  # the exposed block
-        super().__init__(*args, **kwargs)
-
-    def can_initiate(self, state: BlocksEnvState) -> bool:
-        # Robot must be holding some block, but not the target.
-        if state.held_block_name in [None, self._block_name]:
-            return False
-
-        # The block must not have anything on top of it.
-        return _block_has_nothing_above(self._block_name, state, self._scene_spec)
-
-    def initiate(self, state: BlocksEnvState) -> None:
-        # Reset the simulated robot to the given state.
-        self._robot.set_joints(state.robot.joint_positions)
-
-        start_pose = self._robot.get_end_effector_pose()
-        block_pose = state.get_block_state(self._block_name).pose
-        waypoint1 = Pose(
-            (start_pose.position[0], start_pose.position[1], self._safe_height),
-            start_pose.orientation,
-        )
-        waypoint2 = Pose(
-            (block_pose.position[0], block_pose.position[1], self._safe_height),
-            start_pose.orientation,
-        )
-        waypoint3 = Pose(
-            (
-                block_pose.position[0],
-                block_pose.position[1],
-                block_pose.position[2] + 2 * self._scene_spec.block_half_extents[2],
-            ),
-            start_pose.orientation,
-        )
-
-        waypoints = [
-            start_pose,
-            waypoint1,
-            waypoint2,
-            waypoint3,
-        ]
-
-        end_effector_path: list[Pose] = []
-        for p1, p2 in zip(waypoints[:-1], waypoints[1:], strict=True):
-            end_effector_path.extend(iter_between_poses(p1, p2))
-
-        motion_plan = smoothly_follow_end_effector_path(
-            self._robot,
-            end_effector_path,
-            state.robot.joint_positions,
-            collision_ids=set(),
-            joint_distance_fn=self._joint_distance_fn,
-            max_smoothing_iters_per_step=self._max_smoothing_iters_per_step,
-        )
-
-        self._plan = self._motion_plan_to_plan(motion_plan)
-        self._plan.append(BlocksAction([0.0] * 7, gripper_action=1))  # open
-
-
-def _block_has_nothing_above(
-    block_name: str, state: BlocksEnvState, scene_spec: BlocksEnvSceneSpec
-) -> bool:
-    block_state = state.get_block_state(block_name)
-    x_thresh = scene_spec.block_half_extents[0]
-    y_thresh = scene_spec.block_half_extents[1]
-    for other_block_state in state.blocks:
-        if other_block_state.name == block_name:
-            continue
-        # Check if this other block is above the main one.
-        if other_block_state.pose.position[2] <= block_state.pose.position[2]:
-            continue
-        # Check if close enough in the x plane.
-        if (
-            abs(other_block_state.pose.position[0] - block_state.pose.position[0])
-            > x_thresh
-        ):
-            continue
-        # Check if close enough in the y plane.
-        if (
-            abs(other_block_state.pose.position[1] - block_state.pose.position[1])
-            > y_thresh
-        ):
-            continue
-        # On is true.
-        return False
-    return True
