@@ -26,6 +26,10 @@ class Controller(Generic[ObsType, ActType, CommandType]):
         to reset().
         """
 
+    @abc.abstractmethod
+    def get_command_space(self) -> Space[CommandType]:
+        """Get the command space for this controller."""
+
 
 class ConstraintBasedController(Controller[ObsType, ActType, CommandType]):
     """A controller that generates a space of possible actions and then samples

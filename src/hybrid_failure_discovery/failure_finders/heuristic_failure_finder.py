@@ -6,6 +6,7 @@ from scipy.special import logsumexp
 from tomsutils.utils import sample_seed_from_rng
 
 from hybrid_failure_discovery.commander.commander import Commander
+from hybrid_failure_discovery.commander.random_commander import RandomCommander
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedEnvModel,
@@ -49,17 +50,23 @@ class HeuristicFailureFinder(FailureFinder):
     def run(
         self,
         env: ConstraintBasedEnvModel[ObsType, ActType],
-        commander: Commander[ObsType, ActType, CommandType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
     ) -> Trajectory[ObsType, ActType, CommandType] | None:
         # Initialize the particles (partial trajectories).
         initial_states = env.get_initial_states()
-        initial_states.seed(sample_seed_from_rng(self._rng))
+        seed = sample_seed_from_rng(self._rng)
+        initial_states.seed(seed)
         particles: list[Trajectory] = [
             Trajectory([initial_states.sample()], [], [])
             for _ in range(self._num_particles)
         ]
+        # Get the space of possible commands and create a random commander.
+        command_space = controller.get_command_space()
+        commander: RandomCommander[ObsType, ActType, CommandType] = RandomCommander(
+            command_space
+        )
+        commander.seed(seed)
         # Main loop.
         for itr in range(self._max_num_iters):
             # Sample new candidate particles.

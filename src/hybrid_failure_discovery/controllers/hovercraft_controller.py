@@ -75,3 +75,6 @@ class HoverCraftController(
         # Singleton space right now.
         action_space = EnumSpace([action])
         return action_space
+
+    def get_command_space(self) -> Space[HoverCraftCommand]:
+        return EnumSpace([HoverCraftCommand()])

@@ -4,8 +4,8 @@ from hybrid_failure_discovery.controllers.blocks_controller import (
     BlocksController,
 )
 from hybrid_failure_discovery.envs.blocks_env import (
-    BlocksEnv,
     BlocksCommand,
+    BlocksEnv,
 )
 
 

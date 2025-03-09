@@ -12,7 +12,7 @@ from pybullet_helpers.motion_planning import (
     smoothly_follow_end_effector_path,
 )
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
-from tomsutils.spaces import FunctionalSpace
+from tomsutils.spaces import EnumSpace, FunctionalSpace
 
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.blocks_env import (
@@ -101,6 +101,9 @@ class BlocksController(
                     break
             assert self._current_option is not None
         return self._current_option.step(state)
+
+    def get_command_space(self) -> Space[BlocksCommand]:
+        return EnumSpace([BlocksCommand()])
 
 
 class BlocksOption:

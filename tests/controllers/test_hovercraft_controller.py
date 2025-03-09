@@ -4,8 +4,8 @@ from hybrid_failure_discovery.controllers.hovercraft_controller import (
     HoverCraftController,
 )
 from hybrid_failure_discovery.envs.hovercraft_env import (
-    HoverCraftEnv,
     HoverCraftCommand,
+    HoverCraftEnv,
 )
 
 

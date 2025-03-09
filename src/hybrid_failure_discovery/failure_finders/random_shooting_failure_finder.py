@@ -4,7 +4,7 @@ import numpy as np
 from gymnasium.core import ActType, ObsType
 from tomsutils.utils import sample_seed_from_rng
 
-from hybrid_failure_discovery.commander.commander import Commander
+from hybrid_failure_discovery.commander.random_commander import RandomCommander
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedEnvModel,
@@ -14,6 +14,7 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
     FailureMonitor,
 )
 from hybrid_failure_discovery.structs import CommandType, Trajectory
+from hybrid_failure_discovery.utils import extend_trajectory_until_failure
 
 
 class RandomShootingFailureFinder(FailureFinder):
@@ -33,47 +34,40 @@ class RandomShootingFailureFinder(FailureFinder):
     def run(
         self,
         env: ConstraintBasedEnvModel[ObsType, ActType],
-        commander: Commander[ObsType, ActType, CommandType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
     ) -> Trajectory[ObsType, ActType, CommandType] | None:
         for traj_idx in range(self._max_num_trajectories):
-            # Sample an initial state.
+            # Initialize the particles (partial trajectories).
             initial_states = env.get_initial_states()
-            initial_states.seed(sample_seed_from_rng(self._rng))
-            state = initial_states.sample()
-            # Reset the controller and monitor.
-            controller.reset(state)
-            commander.reset(state)
-            failure_monitor.reset(state)
-            # Record the trajectory.
-            states = [state]
-            actions: list[ActType] = []
-            commands: list[CommandType] = []
-            failure_found = False
-            for _ in range(self._max_trajectory_length):
-                # Sample a command.
-                command = commander.get_command()
-                # Sample an action.
-                action_space = controller.step_action_space(state, command)
-                action_space.seed(sample_seed_from_rng(self._rng))
-                action = action_space.sample()
-                # Update the state.
-                next_states = env.get_next_states(state, action)
-                next_states.seed(sample_seed_from_rng(self._rng))
-                state = next_states.sample()
-                commander.update(action, state)
-                # Save the trajectory.
-                actions.append(action)
-                states.append(state)
-                commands.append(command)
-                # Check for failure.
-                if failure_monitor.step(command, action, state):
-                    failure_found = True
-                    break
+            seed = sample_seed_from_rng(self._rng)
+            initial_states.seed(seed)
+            initial_state = initial_states.sample()
+            init_traj: Trajectory[ObsType, ActType, CommandType] = Trajectory(
+                [initial_state], [], []
+            )
+            # Get the space of possible commands and create a random commander.
+            command_space = controller.get_command_space()
+            commander: RandomCommander[ObsType, ActType, CommandType] = RandomCommander(
+                command_space
+            )
+            commander.seed(seed)
+
+            def _termination_fn(traj: Trajectory) -> bool:
+                return len(traj.actions) >= self._max_trajectory_length
+
+            failure_traj, failure_found = extend_trajectory_until_failure(
+                init_traj,
+                env,
+                commander,
+                controller,
+                failure_monitor,
+                _termination_fn,
+                self._rng,
+            )
             # Failure found, we're done!
             if failure_found:
                 print(f"Found a failure after {traj_idx+1} trajectory samples")
-                return Trajectory(states, actions, commands)
+                return failure_traj
         print("Failure finding failed.")
         return None
