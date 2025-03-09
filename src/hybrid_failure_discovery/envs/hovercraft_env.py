@@ -35,13 +35,6 @@ class HoverCraftAction:
 
 
 @dataclass(frozen=True)
-class HoverCraftCommand:
-    """A command in the hovercraft environment."""
-
-    switch: bool  # whether to switch between left, right and up, down flight
-
-
-@dataclass(frozen=True)
 class HoverCraftSceneSpec:
     """Static hyperparameters for the hovercraft environment."""
 

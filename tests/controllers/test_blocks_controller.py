@@ -1,10 +1,10 @@
 """Tests for blocks_controller.py."""
 
 from hybrid_failure_discovery.controllers.blocks_controller import (
+    BlocksCommand,
     BlocksController,
 )
 from hybrid_failure_discovery.envs.blocks_env import (
-    BlocksCommand,
     BlocksEnv,
 )
 
@@ -21,7 +21,7 @@ def test_blocks_controller():
 
     state, _ = env.reset(seed=123)
     controller.reset(state)
-    command = BlocksCommand()
+    command = BlocksCommand([])
 
     for _ in range(200):
         action = controller.step(state, command)

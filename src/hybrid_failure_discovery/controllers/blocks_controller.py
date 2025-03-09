@@ -1,6 +1,7 @@
 """A controller for the blocks environment."""
 
 import abc
+from dataclasses import dataclass
 from functools import partial
 
 import numpy as np
@@ -17,11 +18,17 @@ from tomsutils.spaces import EnumSpace, FunctionalSpace
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.blocks_env import (
     BlocksAction,
-    BlocksCommand,
     BlocksEnv,
     BlocksEnvSceneSpec,
     BlocksEnvState,
 )
+
+
+@dataclass(frozen=True)
+class BlocksCommand:
+    """A command in the blocks environment."""
+
+    towers: list[list[str]]  # target towers to build
 
 
 class BlocksController(
@@ -103,7 +110,7 @@ class BlocksController(
         return self._current_option.step(state)
 
     def get_command_space(self) -> Space[BlocksCommand]:
-        return EnumSpace([BlocksCommand()])
+        return EnumSpace([BlocksCommand([])])
 
 
 class BlocksOption:

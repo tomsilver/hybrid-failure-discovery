@@ -1,10 +1,10 @@
 """Tests for hovercraft_controller.py."""
 
 from hybrid_failure_discovery.controllers.hovercraft_controller import (
+    HoverCraftCommand,
     HoverCraftController,
 )
 from hybrid_failure_discovery.envs.hovercraft_env import (
-    HoverCraftCommand,
     HoverCraftEnv,
 )
 

@@ -1,8 +1,8 @@
 """Failure monitor for the blocks environment."""
 
+from hybrid_failure_discovery.controllers.blocks_controller import BlocksCommand
 from hybrid_failure_discovery.envs.blocks_env import (
     BlocksAction,
-    BlocksCommand,
     BlocksEnvState,
 )
 from hybrid_failure_discovery.failure_monitors.failure_monitor import (

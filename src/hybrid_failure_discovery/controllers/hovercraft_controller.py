@@ -1,5 +1,7 @@
 """A controller for the hovercraft environment."""
 
+from dataclasses import dataclass
+
 import control as ct
 import numpy as np
 from gymnasium.spaces import Space
@@ -8,10 +10,16 @@ from tomsutils.spaces import EnumSpace
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftAction,
-    HoverCraftCommand,
     HoverCraftSceneSpec,
     HoverCraftState,
 )
+
+
+@dataclass(frozen=True)
+class HoverCraftCommand:
+    """A command in the hovercraft environment."""
+
+    switch: bool  # whether to switch between left, right and up, down flight
 
 
 class HoverCraftController(

@@ -2,9 +2,9 @@
 
 from tomsgeoms2d.structs import Circle, geom2ds_intersect
 
+from hybrid_failure_discovery.controllers.hovercraft_controller import HoverCraftCommand
 from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftAction,
-    HoverCraftCommand,
     HoverCraftSceneSpec,
     HoverCraftState,
 )
