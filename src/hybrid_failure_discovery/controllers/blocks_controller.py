@@ -88,8 +88,8 @@ class BlocksPerceiver(Perceiver[BlocksEnvState]):
             self._robot: self._sim.robot.robot_id,
             self._table: self._sim.table_id,
         }
-        for block, block_id in zip(self._blocks, sim.block_ids, strict=True):
-            self._pybullet_ids[block] = block_id
+        for block in self._blocks:
+            self._pybullet_ids[block] = self._sim.block_ids[block.name]
 
         # Store on relations for predicate interpretations.
         self._on_relations: set[tuple[Object, Object]] = set()
@@ -113,6 +113,7 @@ class BlocksPerceiver(Perceiver[BlocksEnvState]):
         atoms = self._parse_observation(obs)
         objects = self._get_objects()
         goal = self._get_goal(info)
+        print(f"Reset perceiver with goal: {sorted(goal)}")
         return objects, atoms, goal
 
     def step(self, obs: BlocksEnvState) -> set[GroundAtom]:
@@ -400,7 +401,6 @@ def _get_pick_block_plan(
     )
 
     plan: list[BlocksAction] = []
-    plan.append(BlocksAction([0.0] * 7, gripper_action=1))  # open
     plan.extend(_motion_plan_to_plan(motion_plan))
     plan.append(BlocksAction([0.0] * 7, gripper_action=-1))  # close
     return plan
@@ -471,6 +471,7 @@ class PickBlockSkill(BlocksSkill):
     def _get_plan_given_objects(
         self, objects: Sequence[Object], obs: BlocksEnvState
     ) -> list[BlocksAction]:
+        print(f"Getting plan for Pick({objects})")
         _, block, _ = objects
         return _get_pick_block_plan(
             block.name,
@@ -491,6 +492,7 @@ class UnstackBlockSkill(BlocksSkill):
     def _get_plan_given_objects(
         self, objects: Sequence[Object], obs: BlocksEnvState
     ) -> list[BlocksAction]:
+        print(f"Getting plan for Unstack({objects})")
         _, block, _ = objects
         return _get_pick_block_plan(
             block.name,
@@ -511,6 +513,7 @@ class StackBlockSkill(BlocksSkill):
     def _get_plan_given_objects(
         self, objects: Sequence[Object], obs: BlocksEnvState
     ) -> list[BlocksAction]:
+        print(f"Getting plan for Stack({objects})")
         _, _, block = objects
         block_height = 2 * self._scene_spec.block_half_extents[2]
         return _get_place_block_plan(
@@ -533,6 +536,7 @@ class PlaceBlockOnTableSkill(BlocksSkill):
     def _get_plan_given_objects(
         self, objects: Sequence[Object], obs: BlocksEnvState
     ) -> list[BlocksAction]:
+        print(f"Getting plan for Place({objects})")
         _, _, block = objects
         table_height = 2 * self._scene_spec.table_half_extents[2]
         return _get_place_block_plan(
@@ -621,11 +625,14 @@ class BlocksController(
         self,
         state: BlocksEnvState,
         command: BlocksCommand,
+        rng: np.random.Generator,
     ) -> BlocksAction:
+        del rng  # the randomization is buried right now
         if self._current_goal != command:
             # Replan.
             info = {"goal": command}
             self._planner.reset(state, info)
+            self._current_goal = command
         return self._planner.step(state)
 
     def get_command_space(self) -> Space[BlocksCommand]:

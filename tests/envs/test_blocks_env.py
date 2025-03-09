@@ -9,8 +9,8 @@ from hybrid_failure_discovery.envs.blocks_env import (
 )
 
 
-def test_hovercraft_env():
-    """Tests for hovercraft_env.py."""
+def test_blocks_env():
+    """Tests for blocks_env.py."""
 
     env = BlocksEnv(seed=123, use_gui=False)
 
