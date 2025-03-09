@@ -350,9 +350,8 @@ class BlocksSkill(LiftedOperatorSkill[BlocksEnvState, BlocksAction]):
 
 def _motion_plan_to_plan(motion_plan: list[JointPositions]) -> list[BlocksAction]:
     plan = []
-    for t in range(len(motion_plan) - 1):
-        delta = np.subtract(motion_plan[t + 1], motion_plan[t]).tolist()[:7]
-        action = BlocksAction(delta, gripper_action=0)
+    for joint_positions in motion_plan:
+        action = BlocksAction(joint_positions[:7], gripper_action=0)
         plan.append(action)
     return plan
 
@@ -402,7 +401,8 @@ def _get_pick_block_plan(
 
     plan: list[BlocksAction] = []
     plan.extend(_motion_plan_to_plan(motion_plan))
-    plan.append(BlocksAction([0.0] * 7, gripper_action=-1))  # close
+    last_robot_joints = plan[-1].robot_joints
+    plan.append(BlocksAction(last_robot_joints, gripper_action=-1))  # close
 
     # Move up to make "on" not true.
     end_effector_path = list(iter_between_poses(waypoint3, waypoint2))
@@ -471,7 +471,8 @@ def _get_place_block_plan(
     )
 
     plan = _motion_plan_to_plan(motion_plan)
-    plan.append(BlocksAction([0.0] * 7, gripper_action=1))  # open
+    last_robot_joints = plan[-1].robot_joints
+    plan.append(BlocksAction(last_robot_joints, gripper_action=1))  # open
 
     return plan
 

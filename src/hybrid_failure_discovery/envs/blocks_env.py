@@ -58,7 +58,7 @@ class BlocksEnvState:
 class BlocksAction:
     """An action in the blocks environment."""
 
-    robot_arm_joint_delta: JointPositions
+    robot_joints: JointPositions
     gripper_action: int  # -1 for close, 0 for no change, 1 for open
 
 
@@ -282,7 +282,7 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
         # Update robot arm joints.
         joint_arr = np.array(self.robot.get_joint_positions())
         # Assume that first 7 entries are arm.
-        joint_arr[:7] += action.robot_arm_joint_delta
+        joint_arr[:7] = action.robot_joints
 
         # Update gripper if required.
         if action.gripper_action == 1:
@@ -337,14 +337,12 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
 
         # Get the next state.
         state = self._get_state()
-        assert np.allclose(state.robot.joint_positions, clipped_joints)
+        assert np.allclose(state.robot.joint_positions, joint_arr)
 
         return EnumSpace([state])
 
     def actions_are_equal(self, action1: BlocksAction, action2: BlocksAction) -> bool:
-        if not np.allclose(
-            action1.robot_arm_joint_delta, action2.robot_arm_joint_delta
-        ):
+        if not np.allclose(action1.robot_joints, action2.robot_joints):
             return False
         return action1.gripper_action == action2.gripper_action
 
