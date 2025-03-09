@@ -4,6 +4,7 @@ from tomsgeoms2d.structs import Circle, geom2ds_intersect
 
 from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftAction,
+    HoverCraftCommand,
     HoverCraftSceneSpec,
     HoverCraftState,
 )
@@ -13,7 +14,7 @@ from hybrid_failure_discovery.failure_monitors.failure_monitor import (
 
 
 class HoverCraftFailureMonitor(
-    MemorylessStateFailureMonitor[HoverCraftState, HoverCraftAction]
+    MemorylessStateFailureMonitor[HoverCraftState, HoverCraftAction, HoverCraftCommand]
 ):
     """Monitors a trajectory for failures."""
 

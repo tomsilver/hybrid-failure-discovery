@@ -37,6 +37,11 @@ class HoverCraftAction:
 
 
 @dataclass(frozen=True)
+class HoverCraftCommand:
+    """A command in the hovercraft environment."""
+
+
+@dataclass(frozen=True)
 class HoverCraftSceneSpec:
     """Static hyperparameters for the hovercraft environment."""
 

@@ -5,6 +5,7 @@ from gymnasium.core import ActType, ObsType
 from scipy.special import logsumexp
 from tomsutils.utils import sample_seed_from_rng
 
+from hybrid_failure_discovery.commander.commander import Commander
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedEnvModel,
@@ -13,11 +14,12 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
     FailureFinder,
     FailureMonitor,
 )
-from hybrid_failure_discovery.utils import (
+from hybrid_failure_discovery.structs import (
+    CommandType,
     Trajectory,
     TrajectoryHeuristic,
-    extend_trajectory_until_failure,
 )
+from hybrid_failure_discovery.utils import extend_trajectory_until_failure
 
 
 class HeuristicFailureFinder(FailureFinder):
@@ -47,14 +49,15 @@ class HeuristicFailureFinder(FailureFinder):
     def run(
         self,
         env: ConstraintBasedEnvModel[ObsType, ActType],
-        controller: ConstraintBasedController[ObsType, ActType],
-        failure_monitor: FailureMonitor[ObsType, ActType],
-    ) -> Trajectory | None:
+        commander: Commander[ObsType, ActType, CommandType],
+        controller: ConstraintBasedController[ObsType, ActType, CommandType],
+        failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+    ) -> Trajectory[ObsType, ActType, CommandType] | None:
         # Initialize the particles (partial trajectories).
         initial_states = env.get_initial_states()
         initial_states.seed(sample_seed_from_rng(self._rng))
         particles: list[Trajectory] = [
-            Trajectory([initial_states.sample()], [])
+            Trajectory([initial_states.sample()], [], [])
             for _ in range(self._num_particles)
         ]
         # Main loop.
@@ -67,7 +70,7 @@ class HeuristicFailureFinder(FailureFinder):
                 # Extend the particle in various ways.
                 for _ in range(self._num_extension_attempts):
                     new_candidate, failure_found = self._sample_trajectory_extension(
-                        particle, env, controller, failure_monitor
+                        particle, env, commander, controller, failure_monitor
                     )
                     # Check if this trajectory is a failure and return if so.
                     if failure_found:
@@ -75,7 +78,7 @@ class HeuristicFailureFinder(FailureFinder):
                         return new_candidate
                     # If the new_candidate is of max length, start over.
                     if len(new_candidate.actions) >= self._max_trajectory_length:
-                        new_candidate = Trajectory([initial_states.sample()], [])
+                        new_candidate = Trajectory([initial_states.sample()], [], [])
                     new_candidates.append(new_candidate)
             # Subselect from the new and old candidates.
             pool = particles + new_candidates
@@ -85,11 +88,12 @@ class HeuristicFailureFinder(FailureFinder):
 
     def _sample_trajectory_extension(
         self,
-        trajectory: Trajectory,
+        trajectory: Trajectory[ObsType, ActType, CommandType],
         env: ConstraintBasedEnvModel[ObsType, ActType],
-        controller: ConstraintBasedController[ObsType, ActType],
-        failure_monitor: FailureMonitor[ObsType, ActType],
-    ) -> tuple[Trajectory, bool]:
+        commander: Commander[ObsType, ActType, CommandType],
+        controller: ConstraintBasedController[ObsType, ActType, CommandType],
+        failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+    ) -> tuple[Trajectory[ObsType, ActType, CommandType], bool]:
 
         def _termination_fn(traj: Trajectory) -> bool:
             if len(traj.actions) >= self._max_trajectory_length:
@@ -97,12 +101,18 @@ class HeuristicFailureFinder(FailureFinder):
             return self._rng.uniform() < self._extension_termination_prob
 
         return extend_trajectory_until_failure(
-            trajectory, env, controller, failure_monitor, _termination_fn, self._rng
+            trajectory,
+            env,
+            commander,
+            controller,
+            failure_monitor,
+            _termination_fn,
+            self._rng,
         )
 
     def _subselect_particles(
-        self, pool: list[Trajectory], num_to_select: int
-    ) -> list[Trajectory]:
+        self, pool: list[Trajectory[ObsType, ActType, CommandType]], num_to_select: int
+    ) -> list[Trajectory[ObsType, ActType, CommandType]]:
         heuristics = [self._heuristic(traj) for traj in pool]
         log_probs = -self._boltzmann_temperature * np.array(heuristics)
         norm_log_probs = log_probs - logsumexp(log_probs)

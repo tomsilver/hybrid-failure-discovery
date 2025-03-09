@@ -2,6 +2,7 @@
 
 from hybrid_failure_discovery.envs.blocks_env import (
     BlocksAction,
+    BlocksCommand,
     BlocksEnvState,
 )
 from hybrid_failure_discovery.failure_monitors.failure_monitor import (
@@ -9,7 +10,7 @@ from hybrid_failure_discovery.failure_monitors.failure_monitor import (
 )
 
 
-class BlocksFailureMonitor(FailureMonitor[BlocksEnvState, BlocksAction]):
+class BlocksFailureMonitor(FailureMonitor[BlocksEnvState, BlocksAction, BlocksCommand]):
     """A failure occurs when some block that is not held moves."""
 
     def __init__(self, move_tol: float = 0.05) -> None:
@@ -19,7 +20,9 @@ class BlocksFailureMonitor(FailureMonitor[BlocksEnvState, BlocksAction]):
     def reset(self, initial_state: BlocksEnvState) -> None:
         self._previous_state = initial_state
 
-    def step(self, action: BlocksAction, state: BlocksEnvState) -> bool:
+    def step(
+        self, command: BlocksCommand, action: BlocksAction, state: BlocksEnvState
+    ) -> bool:
         assert self._previous_state is not None
         for new_block_state in state.blocks:
             block_name = new_block_state.name

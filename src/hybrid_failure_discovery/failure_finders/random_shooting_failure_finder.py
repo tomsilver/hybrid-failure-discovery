@@ -4,6 +4,7 @@ import numpy as np
 from gymnasium.core import ActType, ObsType
 from tomsutils.utils import sample_seed_from_rng
 
+from hybrid_failure_discovery.commander.commander import Commander
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedEnvModel,
@@ -12,7 +13,7 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
     FailureFinder,
     FailureMonitor,
 )
-from hybrid_failure_discovery.utils import Trajectory
+from hybrid_failure_discovery.structs import CommandType, Trajectory
 
 
 class RandomShootingFailureFinder(FailureFinder):
@@ -32,9 +33,10 @@ class RandomShootingFailureFinder(FailureFinder):
     def run(
         self,
         env: ConstraintBasedEnvModel[ObsType, ActType],
-        controller: ConstraintBasedController[ObsType, ActType],
-        failure_monitor: FailureMonitor[ObsType, ActType],
-    ) -> Trajectory | None:
+        commander: Commander[ObsType, ActType, CommandType],
+        controller: ConstraintBasedController[ObsType, ActType, CommandType],
+        failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+    ) -> Trajectory[ObsType, ActType, CommandType] | None:
         for traj_idx in range(self._max_num_trajectories):
             # Sample an initial state.
             initial_states = env.get_initial_states()
@@ -42,30 +44,36 @@ class RandomShootingFailureFinder(FailureFinder):
             state = initial_states.sample()
             # Reset the controller and monitor.
             controller.reset(state)
+            commander.reset(state)
             failure_monitor.reset(state)
             # Record the trajectory.
             states = [state]
             actions: list[ActType] = []
+            commands: list[CommandType] = []
             failure_found = False
             for _ in range(self._max_trajectory_length):
+                # Sample a command.
+                command = commander.get_command()
                 # Sample an action.
-                action_space = controller.step_action_space(state)
+                action_space = controller.step_action_space(state, command)
                 action_space.seed(sample_seed_from_rng(self._rng))
                 action = action_space.sample()
                 # Update the state.
                 next_states = env.get_next_states(state, action)
                 next_states.seed(sample_seed_from_rng(self._rng))
                 state = next_states.sample()
+                commander.update(action, state)
                 # Save the trajectory.
                 actions.append(action)
                 states.append(state)
+                commands.append(command)
                 # Check for failure.
-                if failure_monitor.step(action, state):
+                if failure_monitor.step(command, action, state):
                     failure_found = True
                     break
             # Failure found, we're done!
             if failure_found:
                 print(f"Found a failure after {traj_idx+1} trajectory samples")
-                return Trajectory(states, actions)
+                return Trajectory(states, actions, commands)
         print("Failure finding failed.")
         return None

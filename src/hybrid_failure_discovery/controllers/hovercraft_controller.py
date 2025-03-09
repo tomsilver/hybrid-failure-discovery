@@ -8,13 +8,14 @@ from tomsutils.spaces import EnumSpace
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftAction,
+    HoverCraftCommand,
     HoverCraftSceneSpec,
     HoverCraftState,
 )
 
 
 class HoverCraftController(
-    ConstraintBasedController[HoverCraftState, HoverCraftAction]
+    ConstraintBasedController[HoverCraftState, HoverCraftAction, HoverCraftCommand]
 ):
     """An LQR-based controller that is parameterized by the amount of time to
     delay before switching between up/down and left/right."""
@@ -46,7 +47,9 @@ class HoverCraftController(
         )
         self._time_since_switch = 0.0
 
-    def step_action_space(self, state: HoverCraftState) -> Space[HoverCraftAction]:
+    def step_action_space(
+        self, state: HoverCraftState, command: HoverCraftCommand
+    ) -> Space[HoverCraftAction]:
         """Optionally toggle the goal pair and then return an LQR action."""
 
         # Check if goal pair switched.

@@ -5,6 +5,7 @@ from hybrid_failure_discovery.controllers.hovercraft_controller import (
 )
 from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftEnv,
+    HoverCraftCommand,
 )
 
 
@@ -20,9 +21,10 @@ def test_hovercraft_controller():
 
     state, _ = env.reset(seed=123)
     controller.reset(state)
+    command = HoverCraftCommand()
 
     for _ in range(250):
-        action = controller.step(state)
+        action = controller.step(state, command)
         state, _, _, _, _ = env.step(action)
 
     env.close()

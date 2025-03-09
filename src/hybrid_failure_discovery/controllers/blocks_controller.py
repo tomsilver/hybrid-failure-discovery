@@ -17,13 +17,16 @@ from tomsutils.spaces import FunctionalSpace
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.blocks_env import (
     BlocksAction,
+    BlocksCommand,
     BlocksEnv,
     BlocksEnvSceneSpec,
     BlocksEnvState,
 )
 
 
-class BlocksController(ConstraintBasedController[BlocksEnvState, BlocksAction]):
+class BlocksController(
+    ConstraintBasedController[BlocksEnvState, BlocksAction, BlocksCommand]
+):
     """A blocks env controller that randomly picks and places blocks."""
 
     def __init__(
@@ -74,7 +77,9 @@ class BlocksController(ConstraintBasedController[BlocksEnvState, BlocksAction]):
         for option in self._options:
             option.reset(initial_state)
 
-    def step_action_space(self, state: BlocksEnvState) -> Space[BlocksAction]:
+    def step_action_space(
+        self, state: BlocksEnvState, command: BlocksCommand
+    ) -> Space[BlocksAction]:
         return FunctionalSpace(
             contains_fn=lambda x: isinstance(x, BlocksAction),
             sample_fn=partial(self._sample_action, state),

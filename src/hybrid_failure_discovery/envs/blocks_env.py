@@ -63,6 +63,11 @@ class BlocksAction:
 
 
 @dataclass(frozen=True)
+class BlocksCommand:
+    """A command in the blocks environment."""
+
+
+@dataclass(frozen=True)
 class BlocksEnvSceneSpec:
     """Static hyperparameters for the blocks environment."""
 
