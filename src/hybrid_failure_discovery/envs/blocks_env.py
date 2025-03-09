@@ -277,7 +277,7 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     ) -> EnumSpace[BlocksEnvState]:
 
         assert self.action_space.contains(action)
-        self._set_state(state)
+        self.set_state(state)
 
         # Update robot arm joints.
         joint_arr = np.array(self.robot.get_joint_positions())
@@ -352,7 +352,11 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     ) -> tuple[float, bool]:
         return 0.0, False
 
-    def _set_state(self, state: BlocksEnvState) -> None:
+    def set_state(self, state: BlocksEnvState) -> None:
+        """Set the environment state.
+
+        Should only be used for simulation.
+        """
         # Set robot state.
         self.robot.set_joints(state.robot.joint_positions)
 
@@ -368,7 +372,7 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     def _render_state(
         self, state: BlocksEnvState
     ) -> RenderFrame | list[RenderFrame] | None:
-        self._set_state(state)
+        self.set_state(state)
         img = capture_image(
             self.physics_client_id,
             **self.scene_spec.get_camera_kwargs(),
