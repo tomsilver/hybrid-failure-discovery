@@ -20,12 +20,12 @@ def test_blocks_controller():
     """Tests for blocks_controller.py."""
 
     env = BlocksEnv(seed=123, use_gui=False)
-    controller = BlocksController(123, env.scene_spec, safe_height=0.15)
+    controller = BlocksController(123, env.scene_spec, safe_height=0.2)
     perceiver = BlocksPerceiver(BlocksEnv(env.scene_spec))
 
     # Uncomment to create video.
-    # from gymnasium.wrappers import RecordVideo
-    # env = RecordVideo(env, "videos/test-blocks-controller")
+    from gymnasium.wrappers import RecordVideo
+    env = RecordVideo(env, "videos/test-blocks-controller")
 
     state, _ = env.reset(seed=123)
     controller.reset(state)

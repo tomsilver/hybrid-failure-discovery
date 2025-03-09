@@ -409,7 +409,7 @@ def _get_pick_block_plan(
     motion_plan = smoothly_follow_end_effector_path(
         robot,
         end_effector_path,
-        state.robot.joint_positions,
+        last_robot_joints + state.robot.joint_positions[7:],
         collision_ids=set(),
         joint_distance_fn=joint_distance_fn,
         max_smoothing_iters_per_step=max_smoothing_iters_per_step,
