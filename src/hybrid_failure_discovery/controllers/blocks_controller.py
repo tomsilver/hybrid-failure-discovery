@@ -326,18 +326,18 @@ class BlocksSkill(LiftedOperatorSkill[BlocksEnvState, BlocksAction]):
         self._safe_height = safe_height
         self._max_smoothing_iters_per_step = max_smoothing_iters_per_step
         self._rng = np.random.default_rng(seed)
-        self._current_plan: list[BlocksAction] = []
+        self._current_plan: list[BlocksAction] | None = None
         self._joint_distance_fn = create_joint_distance_fn(self._robot)
         super().__init__()
 
     def reset(self, ground_operator: GroundOperator) -> None:
-        self._current_plan = []
+        self._current_plan = None
         return super().reset(ground_operator)
 
     def _get_action_given_objects(
         self, objects: Sequence[Object], obs: BlocksEnvState
     ) -> BlocksAction:
-        if not self._current_plan:
+        if self._current_plan is None:
             self._current_plan = self._get_plan_given_objects(objects, obs)
         return self._current_plan.pop(0)
 
@@ -403,6 +403,19 @@ def _get_pick_block_plan(
     plan: list[BlocksAction] = []
     plan.extend(_motion_plan_to_plan(motion_plan))
     plan.append(BlocksAction([0.0] * 7, gripper_action=-1))  # close
+
+    # Move up to make "on" not true.
+    end_effector_path = list(iter_between_poses(waypoint3, waypoint2))
+    motion_plan = smoothly_follow_end_effector_path(
+        robot,
+        end_effector_path,
+        state.robot.joint_positions,
+        collision_ids=set(),
+        joint_distance_fn=joint_distance_fn,
+        max_smoothing_iters_per_step=max_smoothing_iters_per_step,
+    )
+    plan.extend(_motion_plan_to_plan(motion_plan))
+
     return plan
 
 
@@ -459,6 +472,7 @@ def _get_place_block_plan(
 
     plan = _motion_plan_to_plan(motion_plan)
     plan.append(BlocksAction([0.0] * 7, gripper_action=1))  # open
+
     return plan
 
 
