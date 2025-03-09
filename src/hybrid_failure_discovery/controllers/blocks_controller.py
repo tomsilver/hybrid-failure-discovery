@@ -27,7 +27,7 @@ from relational_structs import (
 )
 from task_then_motion_planning.planning import TaskThenMotionPlanner
 from task_then_motion_planning.structs import LiftedOperatorSkill, Perceiver, Skill
-from tomsutils.spaces import EnumSpace, FunctionalSpace
+from tomsutils.spaces import FunctionalSpace
 
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.blocks_env import (
@@ -651,5 +651,68 @@ class BlocksController(
         return self._planner.step(state)
 
     def get_command_space(self) -> Space[BlocksCommand]:
-        # TODO update to include actual towers
-        return EnumSpace([BlocksCommand([])])
+
+        def contains_fn(command: BlocksCommand) -> bool:
+
+            # Get all block names.
+            all_block_names = {f"block{i}" for i in range(self._scene_spec.num_blocks)}
+
+            # Track used blocks to ensure no duplicates across towers.
+            used_blocks = set()
+
+            for tower in command.towers:
+                # Each tower should contain at least one block.
+                if len(tower) < 1:
+                    return False
+
+                # Check that all items in the tower are valid block names.
+                for block_name in tower:
+                    if block_name not in all_block_names:
+                        return False
+                    if block_name in used_blocks:
+                        return False
+                    used_blocks.add(block_name)
+
+            return True
+
+        def sample_fn(rng: np.random.Generator) -> BlocksCommand:
+            # Get all block names.
+            all_block_names = [f"block{i}" for i in range(self._scene_spec.num_blocks)]
+
+            # Shuffle blocks to randomize assignment.
+            rng.shuffle(all_block_names)
+
+            # Decide how many towers to create (between 1 and num_blocks).
+            num_towers = rng.integers(1, self._scene_spec.num_blocks + 1)
+
+            # Ensure we don't try to create more towers than we have blocks.
+            num_towers = min(num_towers, self._scene_spec.num_blocks)
+
+            # Distribute blocks into towers.
+            towers = []
+            blocks_remaining = all_block_names.copy()
+
+            for i in range(num_towers):
+                # For the last tower, use all remaining blocks.
+                if i == num_towers - 1:
+                    if blocks_remaining:
+                        towers.append(blocks_remaining)
+                    continue
+
+                # Decide how many blocks for this tower.
+                if not blocks_remaining:
+                    break
+
+                max_blocks_for_tower = len(blocks_remaining) - (num_towers - i - 1)
+                if max_blocks_for_tower <= 0:
+                    # We need to ensure each remaining tower gets at least one block.
+                    continue
+
+                num_blocks_for_tower = rng.integers(1, max_blocks_for_tower + 1)
+                tower_blocks = blocks_remaining[:num_blocks_for_tower]
+                blocks_remaining = blocks_remaining[num_blocks_for_tower:]
+                towers.append(tower_blocks)
+
+            return BlocksCommand(towers)
+
+        return FunctionalSpace(contains_fn=contains_fn, sample_fn=sample_fn)
