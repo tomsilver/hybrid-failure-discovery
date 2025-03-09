@@ -21,9 +21,10 @@ def test_hovercraft_controller():
 
     state, _ = env.reset(seed=123)
     controller.reset(state)
-    command = HoverCraftCommand()
 
-    for _ in range(250):
+    for t in range(250):
+        switch = t == 100
+        command = HoverCraftCommand(switch)
         action = controller.step(state, command)
         state, _, _, _, _ = env.step(action)
 
