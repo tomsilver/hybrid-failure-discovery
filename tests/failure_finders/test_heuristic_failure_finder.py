@@ -76,7 +76,7 @@ def test_heuristic_failure_finder():
     # Uncomment to visualize.
     # from pathlib import Path
     # import imageio.v2 as iio
-    # states, _ = result
+    # states = result.observations
     # imgs = [env._render_state(s) for s in states]
     # path = Path("videos") / "test-heuristic-failure-finding" / "heuristic_test.mp4"
     # path.parent.mkdir(exist_ok=True)
