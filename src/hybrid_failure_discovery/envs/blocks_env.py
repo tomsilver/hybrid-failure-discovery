@@ -300,7 +300,7 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
                     np.square(np.subtract(end_effector_position, block_position))
                 )
                 # Grasp successful.
-                if dist < 1e-6:
+                if dist < 1e-3:
                     self.current_grasp_transform = multiply_poses(
                         world_to_robot.invert(), world_to_block
                     )
