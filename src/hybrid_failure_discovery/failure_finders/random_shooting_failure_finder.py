@@ -15,6 +15,7 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
 from hybrid_failure_discovery.utils import Trajectory
 
 
+# Sample
 class RandomShootingFailureFinder(FailureFinder):
     """A naive failure finder that just randomly samples trajectories."""
 
@@ -53,9 +54,11 @@ class RandomShootingFailureFinder(FailureFinder):
                 action_space.seed(sample_seed_from_rng(self._rng))
                 action = action_space.sample()
                 # Update the state.
-                next_states = env.get_next_states(state, action)
+                next_states = env.get_next_states(
+                    state, action
+                )  # Possible states of the environment
                 next_states.seed(sample_seed_from_rng(self._rng))
-                state = next_states.sample()
+                state = next_states.sample()  # Possible selections by the environment.
                 # Save the trajectory.
                 actions.append(action)
                 states.append(state)
