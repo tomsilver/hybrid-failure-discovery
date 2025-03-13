@@ -28,3 +28,6 @@ class HoverCraftFailureMonitor(
             if geom2ds_intersect(circ, obstacle):
                 return True
         return False
+
+    def get_robustness_score(self, state: HoverCraftState) -> float:
+        import ipdb; ipdb.set_trace()
