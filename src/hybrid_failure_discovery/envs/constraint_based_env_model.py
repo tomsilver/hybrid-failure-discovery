@@ -19,6 +19,10 @@ class ConstraintBasedEnvModel(Generic[ObsType, ActType]):
     def get_next_states(self, state: ObsType, action: ActType) -> Space[ObsType]:
         """Get the set of all possible next states (transition constraint)."""
 
+    @abc.abstractmethod
+    def actions_are_equal(self, action1: ActType, action2: ActType) -> bool:
+        """Check if two actions are equivalent in this environment."""
+
 
 class ConstraintBasedGymEnv(
     Env[ObsType, ActType], ConstraintBasedEnvModel[ObsType, ActType]

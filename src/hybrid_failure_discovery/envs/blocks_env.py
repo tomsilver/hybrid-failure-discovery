@@ -277,6 +277,7 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     ) -> EnumSpace[BlocksEnvState]:
 
         assert self.action_space.contains(action)
+        self._set_state(state)
 
         # Update robot arm joints.
         joint_arr = np.array(self.robot.get_joint_positions())
@@ -339,6 +340,13 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
 
         return EnumSpace([state])
 
+    def actions_are_equal(self, action1: BlocksAction, action2: BlocksAction) -> bool:
+        if not np.allclose(
+            action1.robot_arm_joint_delta, action2.robot_arm_joint_delta
+        ):
+            return False
+        return action1.gripper_action == action2.gripper_action
+
     def _get_reward_and_termination(
         self, state: BlocksEnvState, action: BlocksAction, next_state: BlocksEnvState
     ) -> tuple[float, bool]:
@@ -362,7 +370,8 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
     ) -> RenderFrame | list[RenderFrame] | None:
         self._set_state(state)
         img = capture_image(
-            self.physics_client_id, **self.scene_spec.get_camera_kwargs()
+            self.physics_client_id,
+            **self.scene_spec.get_camera_kwargs(),
         )
 
         # In non-render mode, PyBullet does not render background correctly.

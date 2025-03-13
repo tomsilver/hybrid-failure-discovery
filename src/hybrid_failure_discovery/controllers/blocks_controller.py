@@ -70,6 +70,9 @@ class BlocksController(ConstraintBasedController[BlocksEnvState, BlocksAction]):
 
     def reset(self, initial_state: BlocksEnvState) -> None:
         self._current_option = None
+        self._np_random = np.random.default_rng(self._seed)
+        for option in self._options:
+            option.reset(initial_state)
 
     def step_action_space(self, state: BlocksEnvState) -> Space[BlocksAction]:
         return FunctionalSpace(
@@ -123,10 +126,16 @@ class BlocksOption:
     def initiate(self, state: BlocksEnvState) -> None:
         """Initiate the option."""
 
+    def reset(self, initial_state: BlocksEnvState) -> None:
+        """Reset the option."""
+        del initial_state
+        self._rng = np.random.default_rng(self._seed)
+
     def step(self, state: BlocksEnvState) -> BlocksAction:
         """Step the option."""
         del state  # not used right now
-        return self._plan.pop(0)
+        act = self._plan.pop(0)
+        return act
 
     def terminate(self, state) -> bool:
         """Check for termination."""

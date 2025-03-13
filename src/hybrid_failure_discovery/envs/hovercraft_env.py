@@ -235,6 +235,11 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
 
         return EnumSpace(next_states)
 
+    def actions_are_equal(
+        self, action1: HoverCraftAction, action2: HoverCraftAction
+    ) -> bool:
+        return np.allclose([action1.ux, action1.uy], [action2.ux, action2.uy])
+
     def get_hovercraft_circle(self, state: HoverCraftState) -> Circle:
         """For rendering and external failure checking."""
         return Circle(state.x, state.y, self.scene_spec.hovercraft_radius)
