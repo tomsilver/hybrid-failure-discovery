@@ -13,7 +13,7 @@ from hybrid_failure_discovery.failure_finders.failure_finder import (
     FailureMonitor,
 )
 
-
+# Sample 
 class RandomShootingFailureFinder(FailureFinder):
     """A naive failure finder that just randomly samples trajectories."""
 

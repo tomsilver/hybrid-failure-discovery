@@ -11,11 +11,11 @@ from hybrid_failure_discovery.envs.hovercraft_env_tough import (
     HoverCraftEnvTough,
     HoverCraftState,
 )
+from hybrid_failure_discovery.failure_finders.failure_finder import (
+    MemorylessStateFailureMonitor,
+)
 from hybrid_failure_discovery.failure_finders.random_shooting_failure_finder import (
     RandomShootingFailureFinder,
-)
-from hybrid_failure_discovery.failure_monitors.failure_monitor import (
-    MemorylessStateFailureMonitor,
 )
 
 
@@ -37,7 +37,6 @@ def test_random_shooting_failure_finder_tough():
     failure_finder = RandomShootingFailureFinder(seed=123)
 
     result = failure_finder.run(env, controller, failure_monitor)
-    st()
     assert result is not None
 
     # Uncomment to visualize.
