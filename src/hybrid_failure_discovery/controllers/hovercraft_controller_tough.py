@@ -2,6 +2,7 @@
 
 import control as ct
 import numpy as np
+
 from hybrid_failure_discovery.controllers.controller import Controller
 from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftAction,

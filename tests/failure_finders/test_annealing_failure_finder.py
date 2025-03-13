@@ -1,6 +1,7 @@
 """Tests for annealing failure finder."""
 
 import numpy as np
+
 from hybrid_failure_discovery.controllers.hovercraft_controller import (
     HoverCraftController,
 )
@@ -8,7 +9,6 @@ from hybrid_failure_discovery.envs.hovercraft_env import HoverCraftEnv
 from hybrid_failure_discovery.failure_finders.blackbox_optimizers import (
     AnnealingFailureFinder,
 )
-
 from hybrid_failure_discovery.failure_monitors.hovercraft_failure_monitor import (
     HoverCraftFailureMonitor,
 )

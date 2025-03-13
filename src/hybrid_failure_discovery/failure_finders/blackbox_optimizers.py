@@ -103,7 +103,7 @@ class AnnealingFailureFinder(Annealer, FailureFinder):
         """Evaluate the cost using `run()`."""
         # CHeck trajectory for the closest distance to obstacles:
         traj_cost = [
-            self.failure_monitor.get_closest_distance(hc_state)
+            self.failure_monitor.get_closest_distance(hc_state) ## TODO: Generalize to other failure modes; refactor to use get_robustness_score()
             for hc_state in self.hc_state_traj
         ]
         cost = min(traj_cost)
@@ -121,12 +121,12 @@ class AnnealingFailureFinder(Annealer, FailureFinder):
         return state
 
     # Initial random run
-    def random_run(self, env, controller):
+    def random_run(self, env: ConstraintBasedEnvModel[ObsType, ActType], controller: Controller[ObsType, ActType]) -> list[int]:
         """Run a random trajectory."""
         initial_states = env.get_initial_states()
         initial_states.seed(sample_seed_from_rng(self._rng))
         hc_state = initial_states.sample()
-        goal_traj = [self.gx_gy_options.index((hc_state.gx, hc_state.gy))]
+        goal_traj = [self.gx_gy_options.index((hc_state.gx, hc_state.gy))] # TODO: Refactor to sample from goal pairs
 
         # Reset the controller.
         controller.reset(hc_state)
