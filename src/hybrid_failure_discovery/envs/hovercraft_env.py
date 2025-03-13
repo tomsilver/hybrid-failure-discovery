@@ -23,8 +23,6 @@ class HoverCraftState:
     vx: float  # x velocity
     y: float  # y position
     vy: float  # y velocity
-    gx: float  # goal x position
-    gy: float  # goal y position
     t: float  # the current time in seconds
 
 
@@ -133,15 +131,6 @@ class HoverCraftSceneSpec:
         """Cost function R matrix."""
         return 1e-2 * np.eye(2)
 
-    def get_goal_pair_index_from_state(self, state: HoverCraftState) -> tuple[int, int]:
-        """Get the goal pair index from a state."""
-        obs_goal = np.array([state.gx, state.gy])
-        for i, pair in enumerate(self.goal_pairs):
-            for j, goal in enumerate(pair):
-                if np.allclose(goal, obs_goal):
-                    return (i, j)
-        raise ValueError(f"Unrecognized goal: {obs_goal}")
-
 
 class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
     """A 2D hovercraft environment."""
@@ -168,15 +157,11 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
 
     def get_initial_states(self) -> EnumSpace[HoverCraftState]:
         # Fully constrained for now.
-        gi, gj = self.scene_spec.init_goal_index
-        gx, gy = self.scene_spec.goal_pairs[gi][gj]
         initial_state = HoverCraftState(
             x=self.scene_spec.init_x,
             vx=self.scene_spec.init_vx,
             y=self.scene_spec.init_y,
             vy=self.scene_spec.init_vy,
-            gx=gx,
-            gy=gy,
             t=0.0,
         )
         return EnumSpace([initial_state])
@@ -200,39 +185,10 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
         dt = self.scene_spec.dt
         t = state.t + dt
 
-        # Handle the goal, which is the only part that is not fully constrained.
-        gi, gj = self.scene_spec.get_goal_pair_index_from_state(state)
-        gx, gy = self.scene_spec.goal_pairs[gi][gj]
-        goal_vec = np.array([gx, 0, gy, 0])
+        # Fully constrained.
+        next_state = HoverCraftState(x=x, y=y, vx=vx, vy=vy, t=t)
 
-        # First, always toggle if reached goal.
-        if np.allclose(goal_vec, state_vec, atol=self.scene_spec.goal_atol):
-            gj = int(not gj)
-            gx, gy = self.scene_spec.goal_pairs[gi][gj]
-
-        # The next state might have the same goal.
-        next_states = [
-            HoverCraftState(x=x, y=y, vx=vx, vy=vy, gx=gx, gy=gy, t=t),
-        ]
-
-        # Or the next state might have a switched goal.
-        switch_intv = self.scene_spec.goal_switch_interval
-        if np.floor(t / switch_intv) > np.floor((t - dt) / switch_intv):
-            switch_gi = int(not gi)
-            switch_gj = 0  # arbitrarily always start with left or down
-            switch_gx, switch_gy = self.scene_spec.goal_pairs[switch_gi][switch_gj]
-            switch_next_state = HoverCraftState(
-                x=x,
-                y=y,
-                vx=vx,
-                vy=vy,
-                gx=switch_gx,
-                gy=switch_gy,
-                t=t,
-            )
-            next_states.append(switch_next_state)
-
-        return EnumSpace(next_states)
+        return EnumSpace([next_state])
 
     def actions_are_equal(
         self, action1: HoverCraftAction, action2: HoverCraftAction
@@ -249,19 +205,7 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
         action: HoverCraftAction,
         next_state: HoverCraftState,
     ) -> tuple[float, bool]:
-        gx = next_state.gx
-        gy = next_state.gy
-        goal_vec = np.array([gx, 0, gy, 0])
-        next_state_vec = np.array(
-            [next_state.x, next_state.vx, next_state.y, next_state.vy]
-        )
-        action_vec = np.array([action.ux, action.uy])
-        error_vec = np.subtract(next_state_vec, goal_vec)
-        Q = self.scene_spec.Q
-        R = self.scene_spec.R
-        cost = error_vec.T @ Q @ error_vec + action_vec.T @ R @ action_vec
-        reward = -cost
-        return reward, False
+        return 0.0, False
 
     def _render_state(
         self, state: HoverCraftState
@@ -292,15 +236,6 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
             for gx, gy in goal_pair:
                 circ = Circle(gx, gy, self.scene_spec.hovercraft_radius)
                 circ.plot(ax, facecolor=self.scene_spec.goal_circle_color)
-
-        # Plot the current goal.
-        ax.scatter(
-            [state.gx],
-            [state.gy],
-            s=self.scene_spec.goal_star_size,
-            marker="*",
-            color=self.scene_spec.goal_star_color,
-        )
 
         ax.set_xlim(min_x + pad, max_x - pad)
         ax.set_ylim(min_y + pad, max_y - pad)
