@@ -1,4 +1,12 @@
-"""Tests for random_shooting_failure_finder.py."""
+"""Tests for random shooting failure finder."""
+
+import numpy as np
+from tomsgeoms2d.structs import (
+    Circle,
+    Geom2D,
+    Rectangle,
+    geom2ds_intersect,
+)
 
 from hybrid_failure_discovery.controllers.blocks_controller import (
     BlocksController,
@@ -8,6 +16,9 @@ from hybrid_failure_discovery.controllers.hovercraft_controller import (
 )
 from hybrid_failure_discovery.envs.blocks_env import (
     BlocksEnv,
+)
+from hybrid_failure_discovery.envs.constraint_based_env_model import (
+    ConstraintBasedEnvModel,
 )
 from hybrid_failure_discovery.envs.hovercraft_env import HoverCraftEnv
 from hybrid_failure_discovery.failure_finders.random_shooting_failure_finder import (

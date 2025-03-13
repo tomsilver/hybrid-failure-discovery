@@ -1,7 +1,6 @@
 """Hovercraft environment from Apurva Badithela."""
 
 from dataclasses import dataclass, field
-from pdb import set_trace as st
 
 import matplotlib.pyplot as plt
 import numpy as np

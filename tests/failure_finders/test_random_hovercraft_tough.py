@@ -1,8 +1,12 @@
-"""Tests for random_shooting_failure_finder.py."""
+"""Tests for random hovercraft tough."""
 
-from pdb import set_trace as st
-
-from tomsgeoms2d.structs import geom2ds_intersect
+import numpy as np
+from tomsgeoms2d.structs import (
+    Circle,
+    Geom2D,
+    Rectangle,
+    geom2ds_intersect,
+)
 
 from hybrid_failure_discovery.controllers.hovercraft_controller_tough import (
     HoverCraftControllerTough,
@@ -11,11 +15,11 @@ from hybrid_failure_discovery.envs.hovercraft_env_tough import (
     HoverCraftEnvTough,
     HoverCraftState,
 )
-from hybrid_failure_discovery.failure_finders.failure_finder import (
-    MemorylessStateFailureMonitor,
-)
 from hybrid_failure_discovery.failure_finders.random_shooting_failure_finder import (
     RandomShootingFailureFinder,
+)
+from hybrid_failure_discovery.failure_monitors.failure_monitor import (
+    MemorylessStateFailureMonitor,
 )
 
 

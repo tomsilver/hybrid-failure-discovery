@@ -1,26 +1,18 @@
-"""Tests for annealing_failure_finder.py."""
+"""Tests for annealing failure finder."""
 
-from hybrid_failure_discovery.controllers.blocks_controller import (
-    BlocksController,
-)
+import numpy as np
 from hybrid_failure_discovery.controllers.hovercraft_controller import (
     HoverCraftController,
-)
-from hybrid_failure_discovery.envs.blocks_env import (
-    BlocksEnv,
 )
 from hybrid_failure_discovery.envs.hovercraft_env import HoverCraftEnv
 from hybrid_failure_discovery.failure_finders.blackbox_optimizers import (
     AnnealingFailureFinder,
 )
-from hybrid_failure_discovery.failure_monitors.blocks_failure_monitor import (
-    BlocksFailureMonitor,
-)
+
 from hybrid_failure_discovery.failure_monitors.hovercraft_failure_monitor import (
     HoverCraftFailureMonitor,
 )
-from simanneal import Annealer
-from pdb import set_trace as st
+
 
 def test_annealing_failure_finder():
     """Tests for annealing_failure_finder.py."""
@@ -32,7 +24,9 @@ def test_annealing_failure_finder():
     # failure_finder = AnnealingFailureFinder(seed=123)
     # result = failure_finder.run(env, controller, failure_monitor)
 
-    annealer = AnnealingFailureFinder(env=env, controller=controller, failure_monitor=failure_monitor, seed=123)
+    annealer = AnnealingFailureFinder(
+        env=env, controller=controller, failure_monitor=failure_monitor, seed=123
+    )
     annealer.Tmax = 1.0  # Lower starting temperature
     annealer.Tmin = 0.001  # Stop sooner
     annealer.steps = 10  # Reduce number of iterations
@@ -51,7 +45,7 @@ def test_annealing_failure_finder():
 
     import imageio.v2 as iio
 
-    states = annealer.hc_state_traj # HOvercraft trajectory
+    states = annealer.hc_state_traj  # HOvercraft trajectory
     imgs = [env._render_state(s) for s in states]
 
     # Find the root directory of the repository (the directory containing the .git folder)

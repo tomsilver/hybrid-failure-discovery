@@ -1,12 +1,9 @@
-"""A controller for the hovercraft environment."""
-
-from pdb import set_trace as st
+"""Controller for the hovercraft environment."""
 
 import control as ct
 import numpy as np
-
 from hybrid_failure_discovery.controllers.controller import Controller
-from hybrid_failure_discovery.envs.hovercraft_env_tough import (
+from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftAction,
     HoverCraftSceneSpec,
     HoverCraftState,

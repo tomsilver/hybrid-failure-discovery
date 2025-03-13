@@ -1,19 +1,15 @@
-"""Hovercraft environment from Apurva Badithela."""
+"""Environment for the hovercraft."""
 
 from dataclasses import dataclass, field
-from pdb import set_trace as st
 
 import matplotlib.pyplot as plt
 import numpy as np
 from gymnasium.core import RenderFrame
 from numpy.typing import NDArray
 from tomsgeoms2d.structs import Circle, Geom2D, Rectangle
-from tomsutils.spaces import EnumSpace, FunctionalSpace
+from tomsutils.spaces import EnumSpace
 from tomsutils.utils import fig2data
 
-from hybrid_failure_discovery.envs.constraint_based_env_model import (
-    ConstraintBasedGymEnv,
-)
 from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftAction,
     HoverCraftEnv,
@@ -126,14 +122,15 @@ class HoverCraftSceneSpec:
 
 
 class HoverCraftEnvTough(HoverCraftEnv):
+    """A tougher version of the hovercraft environment.
+
+    TODO: Need to identify the failure modes in this environment.
+    """
 
     def in_switch_region(self, state: HoverCraftState) -> bool:
         """Can switch only when hovercraft is in switching region at the
         center."""
-        if -0.2 <= state.x <= 0.2 and -0.2 <= state.y <= 0.2:
-            return True
-        else:
-            return False
+        return -0.2 <= state.x <= 0.2 and -0.2 <= state.y <= 0.2
 
     def get_next_states(
         self, state: HoverCraftState, action: HoverCraftAction
@@ -142,7 +139,7 @@ class HoverCraftEnvTough(HoverCraftEnv):
         try:
             assert self.action_space.contains(action)
         except:
-            st()
+            raise ValueError(f"Invalid action: {action}")
 
         A = self.scene_spec.A
         B = self.scene_spec.B
