@@ -35,3 +35,7 @@ class MemorylessStateFailureMonitor(FailureMonitor[ObsType, ActType, CommandType
 
     def step(self, command: CommandType, action: ActType, state: ObsType) -> bool:
         return self._state_check(state)
+
+    def get_robustness_score(self, state: ObsType) -> float:
+        """Lower means closer to failure."""
+        return 0.0

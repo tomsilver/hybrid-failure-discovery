@@ -18,3 +18,4 @@ def test_hovercraft_failure_monitor():
     env = HoverCraftEnv(scene_spec, seed=123)
     initial_state, _ = env.reset(seed=123)
     score = monitor.get_robustness_score(initial_state)
+    print("Initial robustness score: ", score)
