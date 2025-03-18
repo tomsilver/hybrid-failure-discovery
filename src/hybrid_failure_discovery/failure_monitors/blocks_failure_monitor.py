@@ -35,3 +35,6 @@ class BlocksFailureMonitor(FailureMonitor[BlocksEnvState, BlocksAction, BlocksCo
                 return True  # failure!
         self._previous_state = state
         return False
+
+    def get_robustness_score(self, state: BlocksEnvState) -> float:
+        raise NotImplementedError
