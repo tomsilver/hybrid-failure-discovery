@@ -1,10 +1,13 @@
 """Tests for hovercraft_failure_monitor.py."""
 
-from hybrid_failure_discovery.failure_monitors.hovercraft_failure_monitor import HoverCraftFailureMonitor
 from hybrid_failure_discovery.envs.hovercraft_env import (
+    HoverCraftEnv,
     HoverCraftSceneSpec,
-    HoverCraftEnv
 )
+from hybrid_failure_discovery.failure_monitors.hovercraft_failure_monitor import (
+    HoverCraftFailureMonitor,
+)
+
 
 def test_hovercraft_failure_monitor():
     """Tests for hovercraft_failure_monitor.py."""
