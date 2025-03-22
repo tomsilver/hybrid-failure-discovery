@@ -3,7 +3,7 @@
 import inspect
 
 from gymnasium.core import ActType, ObsType
-from tomsutils.llm import LargeLanguageModel
+from tomsutils.llm import LargeLanguageModel, parse_python_code_from_llm_response
 
 from hybrid_failure_discovery.commander.commander import Commander
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
@@ -62,6 +62,8 @@ Commander Definition:
 
 Please synthesize a Commander that would induce a failure.
 
+IMPORTANT: import anything you need in your response. Do not assume any imports are available.
+
 Given your llm_response, I should be able to run the following code:
 ```python
 exec(llm_response, globals())
@@ -69,9 +71,10 @@ synthesized_commander = eval('SynthesizedCommander()')
 ```
 """
         # Use the LLM to generate the Commander.
-        synthesized_commander_code, _ = self._llm.query(
+        response, _ = self._llm.query(
             prompt, temperature=1.0, seed=self._seed
         )
+        synthesized_commander_code = parse_python_code_from_llm_response(response)
 
         # Execute the synthesized code to create the Commander instance
         exec(synthesized_commander_code, globals())  # pylint: disable=exec-used

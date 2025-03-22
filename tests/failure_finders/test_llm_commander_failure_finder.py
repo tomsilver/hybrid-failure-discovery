@@ -3,9 +3,10 @@
 import tempfile
 from pathlib import Path
 from typing import Any
+import pytest
 
 from tomsutils.llm import (
-    LargeLanguageModel,
+    LargeLanguageModel, OpenAILLM
 )
 
 from hybrid_failure_discovery.controllers.hovercraft_controller import (
@@ -51,8 +52,9 @@ class _MockLLM(LargeLanguageModel):
 def test_llm_commander_failure_finder() -> None:
     """Tests for llm_commander_failure_finder.py."""
 
-    mock_llm_completion = """
-
+    mock_llm_completion = """Certainly! Here you go:
+    
+```python
 from hybrid_failure_discovery.commander.commander import Commander
 from hybrid_failure_discovery.controllers.hovercraft_controller import (
     HoverCraftCommand,
@@ -88,10 +90,33 @@ class SynthesizedCommander(Commander):
 
     def update(self, action, next_state):
         self._current_state = next_state
+```
 """
 
     cache_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
     llm = _MockLLM([[mock_llm_completion]], Path(cache_dir.name))
+
+    env = HoverCraftEnv()
+    controller = HoverCraftController(123, env.scene_spec)
+    failure_monitor = HoverCraftFailureMonitor(env.scene_spec)
+    failure_finder = LLMCommanderFailureFinder(llm, seed=123)
+    result = failure_finder.run(env, controller, failure_monitor)
+    assert result is not None
+
+    # Uncomment to visualize.
+    # import imageio.v2 as iio
+    # states = result.observations
+    # imgs = [env._render_state(s) for s in states]
+    # path = Path("videos") / "test-llm-commander" / "llm_commander_test.mp4"
+    # path.parent.mkdir(exist_ok=True)
+    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+
+
+@pytest.mark.skip(reason="Don't want to run actual LLM in CI.")
+def test_openai_llm_hovercraft_commander_failure_finder() -> None:
+    """Run an OpenAI LLM to create a failure finder commander for hovercraft."""
+
+    llm = OpenAILLM("gpt-4o", Path("./llm_cache"), max_tokens=4096)
 
     env = HoverCraftEnv()
     controller = HoverCraftController(123, env.scene_spec)
