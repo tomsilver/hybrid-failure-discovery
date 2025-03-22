@@ -127,7 +127,9 @@ def test_openai_llm_hovercraft_commander_failure_finder():
     env = HoverCraftEnv()
     controller = HoverCraftController(123, env.scene_spec)
     failure_monitor = HoverCraftFailureMonitor(env.scene_spec)
-    failure_finder = LLMCommanderFailureFinder(llm, seed=123)
+    failure_finder = LLMCommanderFailureFinder(
+        llm, seed=123, max_num_trajectories=10, max_trajectory_length=50
+    )
     result = failure_finder.run(env, controller, failure_monitor)
     assert result is not None
 
@@ -135,7 +137,7 @@ def test_openai_llm_hovercraft_commander_failure_finder():
     # import imageio.v2 as iio
     # states = result.observations
     # imgs = [env._render_state(s) for s in states]
-    # path = Path("videos") / "test-llm-commander" / "llm_commander_test.mp4"
+    # path = Path("videos") / "test-llm-commander" / "hovercraft_llm_commander_test.mp4"
     # path.parent.mkdir(exist_ok=True)
     # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
@@ -149,7 +151,9 @@ def test_openai_llm_blocks_commander_failure_finder():
     env = BlocksEnv()
     controller = BlocksController(123, env.scene_spec)
     failure_monitor = BlocksFailureMonitor()
-    failure_finder = LLMCommanderFailureFinder(llm, seed=123)
+    failure_finder = LLMCommanderFailureFinder(
+        llm, seed=123, max_trajectory_length=1000
+    )
     result = failure_finder.run(env, controller, failure_monitor)
     assert result is not None
 

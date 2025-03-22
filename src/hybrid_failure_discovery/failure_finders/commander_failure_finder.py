@@ -39,6 +39,7 @@ class CommanderFailureFinder(FailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+        traj_idx: int,
     ) -> Commander[ObsType, ActType, CommandType]:
         """Get a commander for the given environment and controller."""
 
@@ -57,7 +58,7 @@ class CommanderFailureFinder(FailureFinder):
             init_traj: Trajectory[ObsType, ActType, CommandType] = Trajectory(
                 [initial_state], [], []
             )
-            commander = self.get_commander(env, controller, failure_monitor)
+            commander = self.get_commander(env, controller, failure_monitor, traj_idx)
 
             def _termination_fn(traj: Trajectory) -> bool:
                 return len(traj.actions) >= self._max_trajectory_length
@@ -71,6 +72,7 @@ class CommanderFailureFinder(FailureFinder):
                 _termination_fn,
                 self._rng,
             )
+
             # Failure found, we're done!
             if failure_found:
                 print(f"Found a failure after {traj_idx+1} trajectory samples")

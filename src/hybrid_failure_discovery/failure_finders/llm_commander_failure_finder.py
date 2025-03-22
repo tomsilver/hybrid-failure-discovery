@@ -1,10 +1,12 @@
 """A failure finder that synthesizes a commander using an LLM."""
 
+import ast
 import inspect
-import re
+from typing import Any
 
 from gymnasium.core import ActType, ObsType
 from tomsutils.llm import LargeLanguageModel, parse_python_code_from_llm_response
+from tomsutils.utils import sample_seed_from_rng
 
 from hybrid_failure_discovery.commander.commander import Commander
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
@@ -27,29 +29,64 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         self,
         llm: LargeLanguageModel,
         *args,
+        llm_temperature: float = 0.7,
+        num_synthesis_retries: int = 3,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         self._llm = llm
+        self._llm_temperature = llm_temperature
+        self._num_synthesis_retries = num_synthesis_retries
 
     def get_commander(
         self,
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+        traj_idx: int,
     ) -> Commander[ObsType, ActType, CommandType]:
 
+        previous_attempt_error: str | None = None
+        for _ in range(self._num_synthesis_retries):
+            llm_seed = sample_seed_from_rng(self._rng)
+            commander, previous_attempt_error = self._synthesize_commander_with_llm(
+                env, controller, failure_monitor, llm_seed, previous_attempt_error
+            )
+            if commander is not None:
+                return commander
+        raise RuntimeError("Failed to synthesize a commander with the LLM.")
+
+    def _synthesize_commander_with_llm(
+        self,
+        env: ConstraintBasedEnvModel[ObsType, ActType],
+        controller: ConstraintBasedController[ObsType, ActType, CommandType],
+        failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+        llm_seed: int,
+        previous_attempt_error: str | None = None,
+    ) -> tuple[Commander[ObsType, ActType, CommandType] | None, str]:
         # Extract the source code for prompting.
-        env_source = inspect.getsource(env.__class__)
-        controller_source = inspect.getsource(controller.__class__)
-        failure_monitor_source = inspect.getsource(failure_monitor.__class__)
+        def _get_source_code_from_obj(obj: Any) -> str:
+            module = inspect.getmodule(obj.__class__)
+            assert module is not None
+            return inspect.getsource(module)
+
+        env_source = _get_source_code_from_obj(env)
+        controller_source = _get_source_code_from_obj(controller)
+        failure_monitor_source = _get_source_code_from_obj(failure_monitor)
         commander_source = inspect.getsource(Commander)
 
         # Function to extract import statements from source code.
         def _extract_imports(source_code: str) -> str:
-            import_statements = re.findall(
-                r"^\s*(import .+|from .+ import .+)", source_code, re.MULTILINE
-            )
+            tree = ast.parse(source_code)
+            import_statements = []
+
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    statement = ast.unparse(node)
+                    if "__future__ import annotations" in statement:
+                        continue
+                    import_statements.append(statement)
+
             return "\n".join(import_statements)
 
         # Extract import statements from the source code.
@@ -59,7 +96,8 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         commander_imports = _extract_imports(commander_source)
 
         # Combine all import statements.
-        combined_imports = "\n".join(
+        combined_imports = "from __future__ import annotations\n"
+        combined_imports += "\n".join(
             set(
                 env_imports.split("\n")
                 + controller_imports.split("\n")
@@ -72,9 +110,10 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         env_module = env.__class__.__module__
         controller_module = controller.__class__.__module__
         failure_monitor_module = failure_monitor.__class__.__module__
+        commander_module = Commander.__module__
 
         # Generate import statements to import everything from those modules.
-        additional_imports = f"from {env_module} import *\nfrom {controller_module} import *\nfrom {failure_monitor_module} import *"  # pylint: disable=line-too-long
+        additional_imports = f"from {env_module} import *\nfrom {controller_module} import *\nfrom {failure_monitor_module} import *\nfrom {commander_module} import Commander"  # pylint: disable=line-too-long
         combined_imports = f"{combined_imports}\n{additional_imports}"
 
         # Create the prompt for the LLM.
@@ -90,19 +129,23 @@ Controller:
 Failure Monitor:
 {failure_monitor_source}
 
-Commander Definition:
+Commander Definition (NOTE: use `from {commander_module} import Commander`):
 {commander_source}
 
 Please synthesize a Commander that would induce a failure.
 
-Given your llm_response, I should be able to run the following code:
-```python
-exec(llm_response, globals())
-synthesized_commander = eval('SynthesizedCommander()')
-```
+Your class should be called SynthesizedCommander() and should take no arguments in the constructor.
 """
+        if previous_attempt_error:
+            prompt += f"\nPrevious attempt error: {previous_attempt_error}"
+        prompt += (
+            "\nPlease provide the complete code for the SynthesizedCommander class."
+        )
+
         # Use the LLM to generate the Commander.
-        response, _ = self._llm.query(prompt, temperature=1.0, seed=self._seed)
+        response, _ = self._llm.query(
+            prompt, temperature=self._llm_temperature, seed=llm_seed
+        )
         synthesized_commander_code = parse_python_code_from_llm_response(response)
 
         # Add imports.
@@ -111,7 +154,11 @@ synthesized_commander = eval('SynthesizedCommander()')
         )
 
         # Execute the synthesized code to create the Commander instance.
-        exec(synthesized_commander_code, globals())  # pylint: disable=exec-used
-        synthesized_commander = eval("SynthesizedCommander()")
+        try:
+            exec(synthesized_commander_code, globals())  # pylint: disable=exec-used
+            synthesized_commander = eval("SynthesizedCommander()")
+        except Exception as e:
+            print(f"WARNING: Failed to execute synthesized commander code. Error: {e}")
+            return None, str(e)
 
-        return synthesized_commander
+        return synthesized_commander, ""
