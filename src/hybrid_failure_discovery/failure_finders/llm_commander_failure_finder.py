@@ -56,7 +56,6 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
                 return commander
         raise RuntimeError("Failed to synthesize a commander with the LLM.")
 
-
     def _synthesize_commander_with_llm(
         self,
         env: ConstraintBasedEnvModel[ObsType, ActType],
@@ -97,7 +96,7 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         commander_imports = _extract_imports(commander_source)
 
         # Combine all import statements.
-        combined_imports = "from __future__ import annotations"
+        combined_imports = "from __future__ import annotations\n"
         combined_imports += "\n".join(
             set(
                 env_imports.split("\n")
@@ -111,9 +110,10 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         env_module = env.__class__.__module__
         controller_module = controller.__class__.__module__
         failure_monitor_module = failure_monitor.__class__.__module__
+        commander_module = Commander.__module__
 
         # Generate import statements to import everything from those modules.
-        additional_imports = f"from {env_module} import *\nfrom {controller_module} import *\nfrom {failure_monitor_module} import *"  # pylint: disable=line-too-long
+        additional_imports = f"from {env_module} import *\nfrom {controller_module} import *\nfrom {failure_monitor_module} import *\nfrom {commander_module} import Commander"  # pylint: disable=line-too-long
         combined_imports = f"{combined_imports}\n{additional_imports}"
 
         # Create the prompt for the LLM.
@@ -129,7 +129,7 @@ Controller:
 Failure Monitor:
 {failure_monitor_source}
 
-Commander Definition:
+Commander Definition (NOTE: use `from {commander_module} import Commander`):
 {commander_source}
 
 Please synthesize a Commander that would induce a failure.
@@ -138,8 +138,10 @@ Your class should be called SynthesizedCommander() and should take no arguments 
 """
         if previous_attempt_error:
             prompt += f"\nPrevious attempt error: {previous_attempt_error}"
-        prompt += "\nPlease provide the complete code for the SynthesizedCommander class."
-        
+        prompt += (
+            "\nPlease provide the complete code for the SynthesizedCommander class."
+        )
+
         # Use the LLM to generate the Commander.
         response, _ = self._llm.query(
             prompt, temperature=self._llm_temperature, seed=llm_seed
