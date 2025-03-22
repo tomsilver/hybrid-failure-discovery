@@ -1,7 +1,8 @@
 """A failure finder that synthesizes a commander using an LLM."""
 
+import ast
 import inspect
-import re
+from typing import Any
 
 from gymnasium.core import ActType, ObsType
 from tomsutils.llm import LargeLanguageModel, parse_python_code_from_llm_response
@@ -40,16 +41,28 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
     ) -> Commander[ObsType, ActType, CommandType]:
 
         # Extract the source code for prompting.
-        env_source = inspect.getsource(env.__class__)
-        controller_source = inspect.getsource(controller.__class__)
-        failure_monitor_source = inspect.getsource(failure_monitor.__class__)
+        def _get_source_code_from_obj(obj: Any) -> str:
+            module = inspect.getmodule(obj.__class__)
+            assert module is not None
+            return inspect.getsource(module)
+
+        env_source = _get_source_code_from_obj(env)
+        controller_source = _get_source_code_from_obj(controller)
+        failure_monitor_source = _get_source_code_from_obj(failure_monitor)
         commander_source = inspect.getsource(Commander)
 
         # Function to extract import statements from source code.
         def _extract_imports(source_code: str) -> str:
-            import_statements = re.findall(
-                r"^\s*(import .+|from .+ import .+)", source_code, re.MULTILINE
-            )
+            tree = ast.parse(source_code)
+            import_statements = []
+
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    statement = ast.unparse(node)
+                    if "__future__ import annotations" in statement:
+                        continue
+                    import_statements.append(statement)
+
             return "\n".join(import_statements)
 
         # Extract import statements from the source code.
@@ -59,7 +72,8 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         commander_imports = _extract_imports(commander_source)
 
         # Combine all import statements.
-        combined_imports = "\n".join(
+        combined_imports = "from __future__ import annotations"
+        combined_imports += "\n".join(
             set(
                 env_imports.split("\n")
                 + controller_imports.split("\n")
