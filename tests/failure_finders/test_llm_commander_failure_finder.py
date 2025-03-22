@@ -127,7 +127,9 @@ def test_openai_llm_hovercraft_commander_failure_finder():
     env = HoverCraftEnv()
     controller = HoverCraftController(123, env.scene_spec)
     failure_monitor = HoverCraftFailureMonitor(env.scene_spec)
-    failure_finder = LLMCommanderFailureFinder(llm, seed=123)
+    failure_finder = LLMCommanderFailureFinder(
+        llm, seed=123, max_num_trajectories=10, max_trajectory_length=50
+    )
     result = failure_finder.run(env, controller, failure_monitor)
     assert result is not None
 

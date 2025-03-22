@@ -26,6 +26,7 @@ class RandomShootingFailureFinder(CommanderFailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+        traj_idx: int,
     ) -> Commander[ObsType, ActType, CommandType]:
         seed = sample_seed_from_rng(self._rng)
         command_space = controller.get_command_space()

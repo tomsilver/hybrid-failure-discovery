@@ -28,16 +28,19 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         self,
         llm: LargeLanguageModel,
         *args,
+        llm_temperature: float = 0.7,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         self._llm = llm
+        self._llm_temperature = llm_temperature
 
     def get_commander(
         self,
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+        traj_idx: int,
     ) -> Commander[ObsType, ActType, CommandType]:
 
         # Extract the source code for prompting.
@@ -116,7 +119,9 @@ synthesized_commander = eval('SynthesizedCommander()')
 ```
 """
         # Use the LLM to generate the Commander.
-        response, _ = self._llm.query(prompt, temperature=1.0, seed=self._seed)
+        response, _ = self._llm.query(
+            prompt, temperature=self._llm_temperature, seed=(self._seed + traj_idx)
+        )
         synthesized_commander_code = parse_python_code_from_llm_response(response)
 
         # Add imports.

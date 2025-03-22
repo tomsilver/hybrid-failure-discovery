@@ -31,6 +31,7 @@ def extend_trajectory_until_failure(
     states = list(trajectory.observations)
     actions = list(trajectory.actions)
     commands = list(trajectory.commands)
+    trajectory = Trajectory(states, actions, commands)
     assert len(states) == len(commands) + 1 == len(actions) + 1
     # Reset and fast forward the controller and failure monitor.
     failure_monitor.reset(states[0])
