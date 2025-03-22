@@ -62,8 +62,6 @@ Commander Definition:
 
 Please synthesize a Commander that would induce a failure.
 
-IMPORTANT: import anything you need in your response. Do not assume any imports are available.
-
 Given your llm_response, I should be able to run the following code:
 ```python
 exec(llm_response, globals())

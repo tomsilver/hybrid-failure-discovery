@@ -112,7 +112,7 @@ class SynthesizedCommander(Commander):
     # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
 
-@pytest.mark.skip(reason="Don't want to run actual LLM in CI.")
+# @pytest.mark.skip(reason="Don't want to run actual LLM in CI.")
 def test_openai_llm_hovercraft_commander_failure_finder() -> None:
     """Run an OpenAI LLM to create a failure finder commander for hovercraft."""
 
