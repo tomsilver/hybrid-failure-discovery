@@ -12,10 +12,6 @@ class ConstraintBasedEnvModel(Generic[ObsType, ActType]):
     """A constraint-based model of an environment."""
 
     @abc.abstractmethod
-    def get_description(self) -> str:
-        """Get a human-readable description of the environment."""
-
-    @abc.abstractmethod
     def get_initial_states(self) -> Space[ObsType]:
         """Get the set of all possible initial states."""
 

@@ -44,10 +44,6 @@ class HoverCraftController(
 
         self._goal_pair_index = (0, 0)
 
-    def get_description(self) -> str:
-        return "An LQR-based controller that oscillates between goals in either" \
-        "the horizontal or vertical direction. A command can switch between the two modes."
-
     def reset(self, initial_state: HoverCraftState) -> None:
         """Reset the controller."""
         self._goal_pair_index = (0, 0)

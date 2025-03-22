@@ -35,10 +35,5 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
     ) -> Commander[ObsType, ActType, CommandType]:
-        
-        # Build LLM prompt.
-        env_description = env.get_description()
-        controller_description = controller.get_description()
-        failure_monitor = failure_monitor.get_description()
 
         import ipdb; ipdb.set_trace()

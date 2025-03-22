@@ -146,10 +146,6 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
         self.render_mode = "rgb_array"
         super().__init__(seed)
 
-    def get_description(self) -> str:
-        return "A 2D hovercraft environment with goals on the left, right, " \
-        "top, and bottom. There are large obstacles in the four corners."
-
     def _create_action_space(self) -> FunctionalSpace[HoverCraftAction]:
         return FunctionalSpace(
             contains_fn=lambda x: isinstance(x, HoverCraftAction),
