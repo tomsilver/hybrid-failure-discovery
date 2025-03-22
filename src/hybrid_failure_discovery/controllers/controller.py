@@ -15,6 +15,10 @@ class Controller(Generic[ObsType, ActType, CommandType]):
     """Base class for a controller."""
 
     @abc.abstractmethod
+    def get_description(self) -> str:
+        """Get a human-readable description of the controller."""
+
+    @abc.abstractmethod
     def reset(self, initial_state: ObsType) -> None:
         """Reset the controller given a new initial state."""
 
