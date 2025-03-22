@@ -243,22 +243,6 @@ PickOperator = LiftedOperator(
     },
 )
 
-PlaceOperator = LiftedOperator(
-    "Place",
-    [Robot, Obj, Surface],
-    preconditions={
-        LiftedAtom(Holding, [Robot, Obj]),
-        LiftedAtom(NotIsMovable, [Surface]),
-    },
-    add_effects={
-        LiftedAtom(On, [Obj, Surface]),
-        LiftedAtom(GripperEmpty, [Robot]),
-    },
-    delete_effects={
-        LiftedAtom(Holding, [Robot, Obj]),
-    },
-)
-
 UnstackOperator = LiftedOperator(
     "Unstack",
     [Robot, Obj, Surface],
@@ -299,7 +283,6 @@ StackOperator = LiftedOperator(
 
 OPERATORS = {
     PickOperator,
-    PlaceOperator,
     UnstackOperator,
     StackOperator,
 }
@@ -542,29 +525,6 @@ class StackBlockSkill(BlocksSkill):
         )
 
 
-class PlaceBlockOnTableSkill(BlocksSkill):
-    """Place a block on the table."""
-
-    def _get_lifted_operator(self) -> LiftedOperator:
-        return PlaceOperator
-
-    def _get_plan_given_objects(
-        self, objects: Sequence[Object], obs: BlocksEnvState
-    ) -> list[BlocksAction]:
-        print(f"Getting plan for Place({objects})")
-        _, _, block = objects
-        table_height = 2 * self._scene_spec.table_half_extents[2]
-        return _get_place_block_plan(
-            block.name,
-            obs,
-            self._robot,
-            self._safe_height,
-            table_height,
-            self._joint_distance_fn,
-            self._max_smoothing_iters_per_step,
-        )
-
-
 ################################################################################
 #                                Controller                                    #
 ################################################################################
@@ -594,7 +554,6 @@ class BlocksController(
         # Create the skills.
         skill_classes = {
             PickBlockSkill,
-            PlaceBlockOnTableSkill,
             UnstackBlockSkill,
             StackBlockSkill,
         }
