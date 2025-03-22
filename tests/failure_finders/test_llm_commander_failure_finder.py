@@ -1,5 +1,13 @@
 """Tests for llm_commander_failure_finder.py."""
 
+import tempfile
+from pathlib import Path
+from typing import Any
+
+from tomsutils.llm import (
+    LargeLanguageModel,
+)
+
 from hybrid_failure_discovery.controllers.hovercraft_controller import (
     HoverCraftController,
 )
@@ -12,12 +20,6 @@ from hybrid_failure_discovery.failure_finders.llm_commander_failure_finder impor
 from hybrid_failure_discovery.failure_monitors.hovercraft_failure_monitor import (
     HoverCraftFailureMonitor,
 )
-from tomsutils.llm import (
-    LargeLanguageModel,
-)
-from pathlib import Path
-from typing import Any
-import tempfile
 
 
 class _MockLLM(LargeLanguageModel):
@@ -62,11 +64,11 @@ from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftState,
 )
 
-class _OracleHoverCraftCommander(Commander):
+class SynthesizedCommander(Commander):
 
-    def __init__(self, scene_spec: HoverCraftSceneSpec, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._scene_spec = scene_spec
+        self._scene_spec = HoverCraftSceneSpec()
         self._current_state = None
         self._switched = False
 
@@ -85,11 +87,11 @@ class _OracleHoverCraftCommander(Commander):
         return HoverCraftCommand(switch=False)
 
     def update(self, action, next_state):
-        self._current_state = next_state"
+        self._current_state = next_state
 """
 
     cache_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
-    llm = _MockLLM([mock_llm_completion], Path(cache_dir.name))
+    llm = _MockLLM([[mock_llm_completion]], Path(cache_dir.name))
 
     env = HoverCraftEnv()
     controller = HoverCraftController(123, env.scene_spec)
@@ -99,10 +101,9 @@ class _OracleHoverCraftCommander(Commander):
     assert result is not None
 
     # Uncomment to visualize.
-    # TODO
-    import imageio.v2 as iio
-    states = result.observations
-    imgs = [env._render_state(s) for s in states]
-    path = Path("videos") / "test-llm-commander" / "llm_commander_test.mp4"
-    path.parent.mkdir(exist_ok=True)
-    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    # import imageio.v2 as iio
+    # states = result.observations
+    # imgs = [env._render_state(s) for s in states]
+    # path = Path("videos") / "test-llm-commander" / "llm_commander_test.mp4"
+    # path.parent.mkdir(exist_ok=True)
+    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
