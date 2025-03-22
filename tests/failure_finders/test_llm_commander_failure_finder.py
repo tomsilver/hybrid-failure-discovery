@@ -3,11 +3,9 @@
 import tempfile
 from pathlib import Path
 from typing import Any
-import pytest
 
-from tomsutils.llm import (
-    LargeLanguageModel, OpenAILLM
-)
+import pytest
+from tomsutils.llm import LargeLanguageModel, OpenAILLM
 
 from hybrid_failure_discovery.controllers.hovercraft_controller import (
     HoverCraftController,
@@ -112,9 +110,10 @@ class SynthesizedCommander(Commander):
     # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
 
-# @pytest.mark.skip(reason="Don't want to run actual LLM in CI.")
+@pytest.mark.skip(reason="Don't want to run actual LLM in CI.")
 def test_openai_llm_hovercraft_commander_failure_finder() -> None:
-    """Run an OpenAI LLM to create a failure finder commander for hovercraft."""
+    """Run an OpenAI LLM to create a failure finder commander for
+    hovercraft."""
 
     llm = OpenAILLM("gpt-4o", Path("./llm_cache"), max_tokens=4096)
 
