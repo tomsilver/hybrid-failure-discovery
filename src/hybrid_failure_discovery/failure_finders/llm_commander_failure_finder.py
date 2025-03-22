@@ -6,6 +6,7 @@ from typing import Any
 
 from gymnasium.core import ActType, ObsType
 from tomsutils.llm import LargeLanguageModel, parse_python_code_from_llm_response
+from tomsutils.utils import sample_seed_from_rng
 
 from hybrid_failure_discovery.commander.commander import Commander
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
@@ -29,11 +30,13 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         llm: LargeLanguageModel,
         *args,
         llm_temperature: float = 0.7,
+        num_synthesis_retries: int = 3,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         self._llm = llm
         self._llm_temperature = llm_temperature
+        self._num_synthesis_retries = num_synthesis_retries
 
     def get_commander(
         self,
@@ -43,6 +46,25 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         traj_idx: int,
     ) -> Commander[ObsType, ActType, CommandType]:
 
+        previous_attempt_error: str | None = None
+        for _ in range(self._num_synthesis_retries):
+            llm_seed = sample_seed_from_rng(self._rng)
+            commander, previous_attempt_error = self._synthesize_commander_with_llm(
+                env, controller, failure_monitor, llm_seed, previous_attempt_error
+            )
+            if commander is not None:
+                return commander
+        raise RuntimeError("Failed to synthesize a commander with the LLM.")
+
+
+    def _synthesize_commander_with_llm(
+        self,
+        env: ConstraintBasedEnvModel[ObsType, ActType],
+        controller: ConstraintBasedController[ObsType, ActType, CommandType],
+        failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+        llm_seed: int,
+        previous_attempt_error: str | None = None,
+    ) -> tuple[Commander[ObsType, ActType, CommandType] | None, str]:
         # Extract the source code for prompting.
         def _get_source_code_from_obj(obj: Any) -> str:
             module = inspect.getmodule(obj.__class__)
@@ -112,15 +134,15 @@ Commander Definition:
 
 Please synthesize a Commander that would induce a failure.
 
-Given your llm_response, I should be able to run the following code:
-```python
-exec(llm_response, globals())
-synthesized_commander = eval('SynthesizedCommander()')
-```
+Your class should be called SynthesizedCommander() and should take no arguments in the constructor.
 """
+        if previous_attempt_error:
+            prompt += f"\nPrevious attempt error: {previous_attempt_error}"
+        prompt += "\nPlease provide the complete code for the SynthesizedCommander class."
+        
         # Use the LLM to generate the Commander.
         response, _ = self._llm.query(
-            prompt, temperature=self._llm_temperature, seed=(self._seed + traj_idx)
+            prompt, temperature=self._llm_temperature, seed=llm_seed
         )
         synthesized_commander_code = parse_python_code_from_llm_response(response)
 
@@ -130,7 +152,11 @@ synthesized_commander = eval('SynthesizedCommander()')
         )
 
         # Execute the synthesized code to create the Commander instance.
-        exec(synthesized_commander_code, globals())  # pylint: disable=exec-used
-        synthesized_commander = eval("SynthesizedCommander()")
+        try:
+            exec(synthesized_commander_code, globals())  # pylint: disable=exec-used
+            synthesized_commander = eval("SynthesizedCommander()")
+        except Exception as e:
+            print(f"WARNING: Failed to execute synthesized commander code. Error: {e}")
+            return None, str(e)
 
-        return synthesized_commander
+        return synthesized_commander, ""
