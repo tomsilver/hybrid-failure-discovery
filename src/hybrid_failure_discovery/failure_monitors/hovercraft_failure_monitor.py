@@ -1,7 +1,5 @@
 """Failure monitor for the hovercraft environment."""
 
-from pdb import set_trace as st
-
 import numpy as np
 from tomsgeoms2d.structs import Circle, Geom2D, Rectangle, geom2ds_intersect
 
@@ -58,8 +56,7 @@ class HoverCraftFailureMonitor(
             # if xP == hc_circ.x and yP == hc_circ.y, circle center is inside rectangle
             dP = float(np.linalg.norm([xP - hc_circ.x, yP - hc_circ.y]))
             return max(0.0, dP - hc_circ.radius)
-        else:
-            raise NotImplementedError
+        raise NotImplementedError
 
     def get_robustness_score(self, state: HoverCraftState) -> float:
         """The robustness score for the hovercraft is the distance to the
