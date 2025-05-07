@@ -1,5 +1,7 @@
 """Failure monitor for the hovercraft environment."""
 
+from pdb import set_trace as st
+
 import numpy as np
 from tomsgeoms2d.structs import Circle, Geom2D, Rectangle, geom2ds_intersect
 
@@ -13,7 +15,6 @@ from hybrid_failure_discovery.failure_monitors.failure_monitor import (
     MemorylessStateFailureMonitor,
 )
 
-from pdb import set_trace as st
 
 class HoverCraftFailureMonitor(
     MemorylessStateFailureMonitor[HoverCraftState, HoverCraftAction, HoverCraftCommand]
@@ -42,18 +43,18 @@ class HoverCraftFailureMonitor(
             The minimum distance between the obstacle and hovercraft
         """
         if isinstance(obstacle, Rectangle):
-            # There is collision if: i) center of circle is in the rectangle or 
+            # There is collision if: i) center of circle is in the rectangle or
             # ii) if an edge of the rectangle is in the circle. This logic would only
             # work for rectangles that are axes-aligned. Needs to be updated for non
             # axes-aligned rectangles.
-            
+
             xmin = obstacle.x
             xmax = obstacle.x + obstacle.width
             ymin = obstacle.y
             ymax = obstacle.y + obstacle.height
             xP = max(xmin, min(hc_circ.x, xmax))
             yP = max(ymin, min(hc_circ.y, ymax))
-            
+
             # if xP == hc_circ.x and yP == hc_circ.y, circle center is inside rectangle
             dP = float(np.linalg.norm([xP - hc_circ.x, yP - hc_circ.y]))
             return max(0.0, dP - hc_circ.radius)

@@ -24,7 +24,9 @@ class FailureMonitor(Generic[ObsType, ActType, CommandType]):
         """Lower means closer to failure."""
 
 
-class MemorylessStateFailureMonitor(FailureMonitor[ObsType, ActType, CommandType], abc.ABC):
+class MemorylessStateFailureMonitor(
+    FailureMonitor[ObsType, ActType, CommandType], abc.ABC
+):
     """A failure finder that only checks a given state."""
 
     def __init__(self, state_check: Callable[[ObsType], bool]) -> None:
