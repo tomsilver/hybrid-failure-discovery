@@ -43,8 +43,9 @@ class HoverCraftFailureMonitor(
         """
         if isinstance(obstacle, Rectangle):
             # There is collision if: i) center of circle is in the rectangle or 
-            # ii) if an edge of the rectangle is in the circle
-            obstacle_line_segments = obstacle.line_segments()
+            # ii) if an edge of the rectangle is in the circle. This logic would only
+            # work for rectangles that are axes-aligned. Needs to be updated for non
+            # axes-aligned rectangles.
             
             xmin = obstacle.x
             xmax = obstacle.x + obstacle.width
@@ -56,9 +57,6 @@ class HoverCraftFailureMonitor(
             # if xP == hc_circ.x and yP == hc_circ.y, circle center is inside rectangle
             dP = float(np.linalg.norm([xP - hc_circ.x, yP - hc_circ.y]))
             return max(0.0, dP - hc_circ.radius)
-
-        # For other geometry types, use a simple distance calculation
-        # This is a placeholder - proper distance calculation needed for other types
         else:
             raise NotImplementedError
 
