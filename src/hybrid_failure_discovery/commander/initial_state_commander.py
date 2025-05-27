@@ -5,20 +5,10 @@ from typing import Generic
 
 from gymnasium.core import ObsType
 
-from hybrid_failure_discovery.structs import CommandType
-
-
-class InitialStateCommander(Generic[ObsType, CommandType]):
-    """Base class for a commander."""
+class InitialStateCommander(Generic[ObsType]):
+    """Base class for setting the initial state."""
 
     @abc.abstractmethod
-    def reset(self, initial_state: ObsType) -> None:
-        """Reset the commander given a new initial state."""
+    def initialize(self) -> ObsType:
+        """Return the initial state to start the trajectory from."""
 
-    @abc.abstractmethod
-    def get_command(self) -> CommandType:
-        """Get a command for the current state."""
-
-    @abc.abstractmethod
-    def update(self, next_state: ObsType) -> None:
-        """Update any internal state."""
