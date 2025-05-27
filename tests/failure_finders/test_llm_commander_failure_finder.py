@@ -159,6 +159,7 @@ def test_openai_llm_blocks_commander_failure_finder():
 
     # Uncomment to visualize.
     import imageio.v2 as iio
+
     states = result.observations
     imgs = [env._render_state(s) for s in states]
     path = Path("videos") / "test-llm-commander" / "blocks_llm_commander_test.mp4"
