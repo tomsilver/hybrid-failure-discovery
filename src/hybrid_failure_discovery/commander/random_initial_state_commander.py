@@ -3,10 +3,7 @@
 from gymnasium.core import ObsType
 from gymnasium.spaces import Space
 
-from hybrid_failure_discovery.commander.initial_state_commander import (
-    InitialStateCommander,
-)
-
+from hybrid_failure_discovery.commander.initial_state_commander import InitialStateCommander
 
 class RandomInitialStateCommander(InitialStateCommander[ObsType]):
     """A commander that randomly samples from a command space."""
