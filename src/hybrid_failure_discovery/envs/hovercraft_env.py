@@ -53,15 +53,23 @@ class HoverCraftSceneSpec:
     scene_height: float = 1
 
     # Hovercraft hyperparameters.
-    hovercraft_radius: float = 0.04
+    # INSERTED CHANGES
+    # ORIGINAL
+    # hovercraft_radius: float = 0.04 -- lowered diameter
+    hovercraft_radius: float = 0.02
 
     # Obstacle hyperparameters.
     obstacles: list[Geom2D] = field(
         default_factory=lambda: [
             Rectangle(-0.5, -0.5, 0.3, 0.3, 0.0),  # bottom left
-            Rectangle(0.2, -0.5, 0.3, 0.3, 0.0),  # bottom right
-            Rectangle(0.2, 0.2, 0.3, 0.3, 0.0),  # top right
-            Rectangle(-0.5, 0.2, 0.3, 0.3, 0.0),  # top left
+            # INSERTED CHANGES
+            # ORIGINALS
+            # Rectangle(0.2, -0.5, 0.3, 0.3, 0.0),  # bottom right
+            # Rectangle(0.2, 0.2, 0.3, 0.3, 0.0),  # top right
+            # Rectangle(-0.5, 0.2, 0.3, 0.3, 0.0),  # top left
+            Rectangle(0.1, 0.1, 0.3, 0.3, 0.0),  # bottom right -- changed x-y positions
+            Rectangle(0.2, 0.2, -0.9, 0.3, 0.0),  # top right -- changed x length
+            Rectangle(-0.5, 0.2, 0.3, 0.01, 0.0),  # top left -- changed by length
         ]
     )
 
