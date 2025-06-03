@@ -54,7 +54,7 @@ class CommanderFailureFinder(FailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
-    ) -> InitialStateCommander[ObsType]:
+    ) -> InitialStateCommander[Space[ObsType]]:
         """Get an initial state commander for the given environment and
         controller."""
 
