@@ -4,11 +4,13 @@ import abc
 
 import numpy as np
 from gymnasium.core import ActType, ObsType
-from tomsutils.utils import sample_seed_from_rng
 from gymnasium.spaces import Space
+from tomsutils.utils import sample_seed_from_rng
 
 from hybrid_failure_discovery.commander.commander import Commander
-from hybrid_failure_discovery.commander.initial_state_commander import InitialStateCommander
+from hybrid_failure_discovery.commander.initial_state_commander import (
+    InitialStateCommander,
+)
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedEnvModel,
@@ -52,8 +54,9 @@ class CommanderFailureFinder(FailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
-    ) -> InitialStateCommander[ObsType, CommandType]:
-        """Get an initial state commander for the given environment and controller."""
+    ) -> InitialStateCommander[ObsType]:
+        """Get an initial state commander for the given environment and
+        controller."""
 
     def run(
         self,
@@ -68,14 +71,17 @@ class CommanderFailureFinder(FailureFinder):
             # initial_states.seed(seed)
             # initial_state = initial_states.sample()
 
-            initializer = self.get_initial_state(initial_space, env, controller, failure_monitor, traj_idx)
+            initializer = self.get_initial_state(
+                initial_space, env, controller, failure_monitor
+            )
             initial_state = initializer.initialize()
-            
+
             init_traj: Trajectory[ObsType, ActType, CommandType] = Trajectory(
                 [initial_state], [], []
             )
 
             commander = self.get_commander(env, controller, failure_monitor, traj_idx)
+
             def _termination_fn(traj: Trajectory) -> bool:
                 return len(traj.actions) >= self._max_trajectory_length
 
