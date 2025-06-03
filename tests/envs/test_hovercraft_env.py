@@ -1,6 +1,11 @@
 """Tests for hovercraft_env.py."""
 
+# CHANGES MADE HERE MOVED THE INMPORTS
+# Uncomment to create video.
+from pathlib import Path
+
 import numpy as np
+from gymnasium.wrappers import RecordVideo
 
 from hybrid_failure_discovery.envs.hovercraft_env import (
     HoverCraftAction,
@@ -15,9 +20,9 @@ def test_hovercraft_env():
     env = HoverCraftEnv()
 
     # Uncomment to create video.
-    from pathlib import Path
+    # from pathlib import Path
 
-    from gymnasium.wrappers import RecordVideo
+    # from gymnasium.wrappers import RecordVideo
 
     video_dir = Path("videos/test-hovercraft-env")
     video_dir.mkdir(parents=True, exist_ok=True)
