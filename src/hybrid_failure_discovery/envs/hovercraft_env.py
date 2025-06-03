@@ -71,9 +71,9 @@ class HoverCraftSceneSpec:
             Rectangle(0.2, 0.2, 0.3, 0.3, 0.0),  # top right
             Rectangle(-0.5, 0.2, 0.3, 0.3, 0.0),  # top left
             # INSERTED CHANGES
-            # Rectangle(0.1, 0.1, 0.3, 0.3, 0.0),  # bottom right -- changed x-y positions
-            # Rectangle(0.2, 0.2, -0.9, 0.3, 0.0),  # top right -- changed x length
-            # Rectangle(-0.5, 0.2, 0.3, 0.01, 0.0),  # top left -- changed by length
+            # Rectangle(0.1, 0.1, 0.3, 0.3, 0.0),  # bottom right -- 
+            # Rectangle(0.2, 0.2, -0.9, 0.3, 0.0),  # top right -- 
+            # Rectangle(-0.5, 0.2, 0.3, 0.01, 0.0),  # top left -- 
         ]
     )
 
