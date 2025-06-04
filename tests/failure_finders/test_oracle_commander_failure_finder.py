@@ -1,6 +1,9 @@
 """Tests for oracle_commander_failure_finder.py."""
 
 from hybrid_failure_discovery.commander.commander import Commander
+from hybrid_failure_discovery.commander.initial_state_commander import (
+    InitialStateCommander,
+)
 from hybrid_failure_discovery.controllers.hovercraft_controller import (
     HoverCraftCommand,
     HoverCraftController,
@@ -49,11 +52,30 @@ def test_oracle_commander_failure_finder() -> None:
         def update(self, action, next_state):
             self._current_state = next_state
 
+    class _OracleHoverCraftInitialStateCommander(InitialStateCommander):
+        """An oracle initial state for the hovercraft environment."""
+
+        def __init__(self, scene_spec: HoverCraftSceneSpec, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._scene_spec = scene_spec
+
+        def initialize(self):
+            # Set the initial state to the leftmost position.
+            initial_state = HoverCraftState(
+                x=self._scene_spec.goal_pairs[0][0][0],
+                y=self._scene_spec.goal_pairs[0][0][1],
+                vx=0.0,
+                vy=0.0,
+                t=0.0,
+            )
+            return initial_state
+
     env = HoverCraftEnv()
     controller = HoverCraftController(123, env.scene_spec)
     failure_monitor = HoverCraftFailureMonitor(env.scene_spec)
+    initializer = _OracleHoverCraftInitialStateCommander(env.scene_spec)
     commander = _OracleHoverCraftCommander(env.scene_spec)
-    failure_finder = OracleCommanderFailureFinder(commander, seed=123)
+    failure_finder = OracleCommanderFailureFinder(initializer, commander, seed=123)
     result = failure_finder.run(env, controller, failure_monitor)
     assert result is not None
 
