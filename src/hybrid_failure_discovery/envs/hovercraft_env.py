@@ -42,14 +42,10 @@ class HoverCraftSceneSpec:
     dt: float = 0.1
 
     # Initial state hyperparameters.
-    # ORIGINALS
-    init_x: float = 0
-    init_vx: float = 0
-    init_y: float = 0
-    init_vy: float = 0
-    # CHANGES
     init_x_range: tuple[float, float] = (-0.2, 0.2)
+    init_vx: float = 0
     init_y_range: tuple[float, float] = (-0.2, 0.2)
+    init_vy: float = 0
 
     init_goal_index: tuple[int, int] = (0, 0)  # index into goal_pairs
 
@@ -58,22 +54,15 @@ class HoverCraftSceneSpec:
     scene_height: float = 1
 
     # Hovercraft hyperparameters.
-    # INSERTED CHANGES
-    # ORIGINAL
     hovercraft_radius: float = 0.04
 
     # Obstacle hyperparameters.
     obstacles: list[Geom2D] = field(
         default_factory=lambda: [
             Rectangle(-0.5, -0.5, 0.3, 0.3, 0.0),  # bottom left
-            # ORIGINALS
             Rectangle(0.2, -0.5, 0.3, 0.3, 0.0),  # bottom right
             Rectangle(0.2, 0.2, 0.3, 0.3, 0.0),  # top right
             Rectangle(-0.5, 0.2, 0.3, 0.3, 0.0),  # top left
-            # INSERTED CHANGES
-            # Rectangle(0.1, 0.1, 0.3, 0.3, 0.0),  # bottom right
-            # Rectangle(0.2, 0.2, -0.9, 0.3, 0.0),  # top right
-            # Rectangle(-0.5, 0.2, 0.3, 0.01, 0.0),  # top left
         ]
     )
 
@@ -157,14 +146,8 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
         self.scene_spec = scene_spec
         self.render_mode = "rgb_array"
         super().__init__(seed)
-        # CHANGES BEGINNING HERE: ADDED LINE FOR RANDOM GENERATION
-        # self._generate_random_initial_state()
-
-    # # NEW FUNCTION
-    # def _generate_random_initial_state(self):
-    #     rng = np.random.default_rng()  # fresh RNG for fresh values
-    #     self._init_x = rng.uniform(*self.scene_spec.init_x_range)
-    #     self._init_y = rng.uniform(*self.scene_spec.init_y_range)
+        # Create one RNG with the seed here
+        self._rng = np.random.default_rng(seed)
 
     def _create_action_space(self) -> FunctionalSpace[HoverCraftAction]:
         return FunctionalSpace(
@@ -177,14 +160,12 @@ class HoverCraftEnv(ConstraintBasedGymEnv[HoverCraftState, HoverCraftAction]):
 
     def get_initial_states(self) -> EnumSpace[HoverCraftState]:
         # Fully constrained for now.
-        rng = np.random.default_rng()  # fresh RNG each time
-        init_x = rng.uniform(*self.scene_spec.init_x_range)
-        init_y = rng.uniform(*self.scene_spec.init_y_range)
+
+        init_x = self._rng.uniform(*self.scene_spec.init_x_range)
+        init_y = self._rng.uniform(*self.scene_spec.init_y_range)
         initial_state = HoverCraftState(
-            # x=self.scene_spec.init_x,
             x=init_x,
             vx=self.scene_spec.init_vx,
-            # y=self.scene_spec.init_y,
             y=init_y,
             vy=self.scene_spec.init_vy,
             t=0.0,
