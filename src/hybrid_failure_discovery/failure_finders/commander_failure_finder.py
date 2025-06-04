@@ -5,7 +5,6 @@ import abc
 import numpy as np
 from gymnasium.core import ActType, ObsType
 from gymnasium.spaces import Space
-from tomsutils.utils import sample_seed_from_rng
 
 from hybrid_failure_discovery.commander.commander import Commander
 from hybrid_failure_discovery.commander.initial_state_commander import (
@@ -68,8 +67,8 @@ class CommanderFailureFinder(FailureFinder):
             # Initialize the particles (partial trajectories).
             initial_space = env.get_initial_states()
             # seed = sample_seed_from_rng(self._rng)
-            # initial_states.seed(seed)
-            # initial_state = initial_states.sample()
+            # initial_space.seed(seed)
+            # initial_state = initial_space.sample()
 
             initializer = self.get_initial_state(
                 initial_space, env, controller, failure_monitor

@@ -5,9 +5,6 @@ from gymnasium.spaces import Space
 from tomsutils.utils import sample_seed_from_rng
 
 from hybrid_failure_discovery.commander.commander import Commander
-from hybrid_failure_discovery.commander.initial_state_commander import (
-    InitialStateCommander,
-)
 from hybrid_failure_discovery.commander.random_commander import RandomCommander
 from hybrid_failure_discovery.commander.random_initial_state_commander import (
     RandomInitialStateCommander,
@@ -49,10 +46,8 @@ class RandomShootingFailureFinder(CommanderFailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
-    ) -> InitialStateCommander[Space[ObsType]]:
+    ) -> RandomInitialStateCommander[Space[ObsType]]:
         seed = sample_seed_from_rng(self._rng)
-        initializer: RandomInitialStateCommander[Space[ObsType]] = (
-            RandomInitialStateCommander(initial_space)
-        )
+        initializer = RandomInitialStateCommander(initial_space)
         initializer.seed(seed)
         return initializer

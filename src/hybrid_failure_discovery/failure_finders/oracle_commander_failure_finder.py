@@ -42,7 +42,6 @@ class OracleCommanderFailureFinder(CommanderFailureFinder):
     ) -> Commander[ObsType, ActType, CommandType]:
         return self._oracle_commander  # type: ignore[return-value]
 
-    
     def get_initial_state(
         self,
         initial_space: Space[ObsType],
@@ -50,12 +49,7 @@ class OracleCommanderFailureFinder(CommanderFailureFinder):
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
     ) -> RandomInitialStateCommander[Space[ObsType]]:
-        """
-        Same as the random shooting failure finder setting
-        """
         seed = sample_seed_from_rng(self._rng)
-        initializer: RandomInitialStateCommander[Space[ObsType]] = (
-            RandomInitialStateCommander(initial_space)
-        )
+        initializer = RandomInitialStateCommander(initial_space)
         initializer.seed(seed)
         return initializer
