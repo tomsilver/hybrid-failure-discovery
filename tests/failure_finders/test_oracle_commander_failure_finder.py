@@ -1,12 +1,6 @@
 """Tests for oracle_commander_failure_finder.py."""
 
-from gymnasium.core import ObsType
-from gymnasium.spaces import Space
-
 from hybrid_failure_discovery.commander.commander import Commander
-from hybrid_failure_discovery.commander.random_initial_state_commander import (
-    RandomInitialStateCommander,
-)
 from hybrid_failure_discovery.controllers.hovercraft_controller import (
     HoverCraftCommand,
     HoverCraftController,

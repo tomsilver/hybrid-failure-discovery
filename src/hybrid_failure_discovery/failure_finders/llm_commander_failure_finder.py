@@ -66,11 +66,10 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
-    ) -> RandomInitialStateCommander[Space[ObsType]]:
+    ) -> RandomInitialStateCommander[ObsType]:
         seed = sample_seed_from_rng(self._rng)
-        initializer: RandomInitialStateCommander[Space[ObsType]] = (
-            RandomInitialStateCommander(initial_space)
-        )
+        initializer = RandomInitialStateCommander(initial_space)
+
         initializer.seed(seed)
         return initializer
 

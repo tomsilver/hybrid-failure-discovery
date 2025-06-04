@@ -48,7 +48,7 @@ class OracleCommanderFailureFinder(CommanderFailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
-    ) -> RandomInitialStateCommander[Space[ObsType]]:
+    ) -> RandomInitialStateCommander[ObsType]:
         seed = sample_seed_from_rng(self._rng)
         initializer = RandomInitialStateCommander(initial_space)
         initializer.seed(seed)
