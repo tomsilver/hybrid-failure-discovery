@@ -1,0 +1,54 @@
+DEBUG uv 0.7.9 (13a86a23b 2025-05-30)
+DEBUG Searching for default Python interpreter in virtual environments
+TRACE Cached interpreter info for Python 3.11.12, skipping probing: .venv/bin/python3
+DEBUG Found `cpython-3.11.12-macos-aarch64-none` at `/Users/abigailgirma/ag_hybridtesting/hybrid-failure-discovery/.venv/bin/python3` (active virtual environment)
+DEBUG Using Python 3.11.12 environment at: .venv
+TRACE Checking lock for `.venv` at `.venv/.lock`
+DEBUG Acquired lock for `.venv`
+DEBUG At least one requirement is not satisfied: pybullet==3.2.7
+DEBUG Using request timeout of 30s
+DEBUG Solving with installed Python version: 3.11.12
+DEBUG Solving with target Python version: >=3.11.12
+TRACE Assigned packages: 
+TRACE Chose package for decision: root. remaining choices: 
+DEBUG Adding direct dependency: pybullet>=3.2.7, <3.2.7+
+INFO add_decision: Id::<PubGrubPackage>(0) @ 0a0.dev0 without checking dependencies    
+TRACE Assigned packages: root==0a0.dev0
+TRACE Chose package for decision: pybullet. remaining choices: 
+TRACE Fetching metadata for pybullet from https://pypi.org/simple/pybullet/
+TRACE Cached request https://pypi.org/simple/pybullet/ is storable because its response has a 'public' cache-control directive
+TRACE Freshness lifetime found via cache-control max age setting: 600s
+DEBUG Found fresh response for: https://pypi.org/simple/pybullet/
+TRACE Received package metadata for: pybullet
+TRACE Selecting candidate for pybullet with range >=3.2.7, <3.2.7+ with 218 remote versions
+TRACE Found candidate for package pybullet with range >=3.2.7, <3.2.7+ after 1 steps: 3.2.7 version
+TRACE Returning incompatible candidate for package pybullet with range >=3.2.7, <3.2.7+ after 1 steps
+DEBUG Searching for a compatible version of pybullet (>=3.2.7, <3.2.7+)
+TRACE Selecting candidate for pybullet with range >=3.2.7, <3.2.7+ with 218 remote versions
+TRACE Found candidate for package pybullet with range >=3.2.7, <3.2.7+ after 1 steps: 3.2.7 version
+TRACE Returning incompatible candidate for package pybullet with range >=3.2.7, <3.2.7+ after 1 steps
+TRACE Assigned packages: root==0a0.dev0
+TRACE Selecting candidate for pybullet with range >3.2.7, <3.2.7+ with 218 remote versions
+TRACE Chose package for decision: pybullet. remaining choices: 
+TRACE Exhausted all candidates for package pybullet with range >3.2.7, <3.2.7+ after 0 steps
+DEBUG Searching for a compatible version of pybullet (>3.2.7, <3.2.7+)
+TRACE Selecting candidate for pybullet with range >3.2.7, <3.2.7+ with 218 remote versions
+TRACE Exhausted all candidates for package pybullet with range >3.2.7, <3.2.7+ after 0 steps
+DEBUG No compatible version found for: pybullet
+INFO Start conflict resolution because incompat satisfied:
+   pybullet >3.2.7, <3.2.7+ is forbidden    
+INFO prior cause: pybullet >=3.2.7, <3.2.7+ is forbidden    
+INFO prior cause: root ==0a0.dev0 is forbidden    
+TRACE Resolver derivation tree before reduction
+term root==0a0.dev0
+  root==0a0.dev0 depends on pybullet==3.2.7
+  pybullet==3.2.7 no usable wheels
+TRACE Resolver derivation tree after reduction
+term root==0a0.dev0
+  root==0a0.dev0 depends on pybullet==3.2.7
+  pybullet==3.2.7 no usable wheels
+  × No solution found when resolving dependencies:
+  ╰─▶ Because pybullet==3.2.7 has no usable wheels and you require pybullet==3.2.7, we can conclude that your requirements are unsatisfiable.
+
+      hint: Wheels are required for `pybullet` because building from source is disabled for all packages (i.e., with `--no-build`)
+DEBUG Released lock at `/Users/abigailgirma/ag_hybridtesting/hybrid-failure-discovery/.venv/.lock`
