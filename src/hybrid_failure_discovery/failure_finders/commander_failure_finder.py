@@ -66,10 +66,6 @@ class CommanderFailureFinder(FailureFinder):
         for traj_idx in range(self._max_num_trajectories):
             # Initialize the particles (partial trajectories).
             initial_space = env.get_initial_states()
-            # seed = sample_seed_from_rng(self._rng)
-            # initial_space.seed(seed)
-            # initial_state = initial_space.sample()
-
             initializer = self.get_initial_state(
                 initial_space, env, controller, failure_monitor
             )
