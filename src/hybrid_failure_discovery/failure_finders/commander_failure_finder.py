@@ -4,9 +4,12 @@ import abc
 
 import numpy as np
 from gymnasium.core import ActType, ObsType
-from tomsutils.utils import sample_seed_from_rng
+from gymnasium.spaces import Space
 
 from hybrid_failure_discovery.commander.commander import Commander
+from hybrid_failure_discovery.commander.initial_state_commander import (
+    InitialStateCommander,
+)
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedEnvModel,
@@ -43,6 +46,17 @@ class CommanderFailureFinder(FailureFinder):
     ) -> Commander[ObsType, ActType, CommandType]:
         """Get a commander for the given environment and controller."""
 
+    @abc.abstractmethod
+    def get_initial_state(
+        self,
+        initial_space: Space[ObsType],
+        env: ConstraintBasedEnvModel[ObsType, ActType],
+        controller: ConstraintBasedController[ObsType, ActType, CommandType],
+        failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+    ) -> InitialStateCommander[ObsType]:
+        """Get an initial state commander for the given environment and
+        controller."""
+
     def run(
         self,
         env: ConstraintBasedEnvModel[ObsType, ActType],
@@ -51,13 +65,16 @@ class CommanderFailureFinder(FailureFinder):
     ) -> Trajectory[ObsType, ActType, CommandType] | None:
         for traj_idx in range(self._max_num_trajectories):
             # Initialize the particles (partial trajectories).
-            initial_states = env.get_initial_states()
-            seed = sample_seed_from_rng(self._rng)
-            initial_states.seed(seed)
-            initial_state = initial_states.sample()
+            initial_space = env.get_initial_states()
+            initializer = self.get_initial_state(
+                initial_space, env, controller, failure_monitor
+            )
+            initial_state = initializer.initialize()
+
             init_traj: Trajectory[ObsType, ActType, CommandType] = Trajectory(
                 [initial_state], [], []
             )
+
             commander = self.get_commander(env, controller, failure_monitor, traj_idx)
 
             def _termination_fn(traj: Trajectory) -> bool:

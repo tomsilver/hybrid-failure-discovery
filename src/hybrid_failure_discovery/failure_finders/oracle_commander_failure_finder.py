@@ -1,8 +1,13 @@
 """A failure finder that uses a given commander to sample trajectories."""
 
 from gymnasium.core import ActType, ObsType
+from gymnasium.spaces import Space
+from tomsutils.utils import sample_seed_from_rng
 
 from hybrid_failure_discovery.commander.commander import Commander
+from hybrid_failure_discovery.commander.random_initial_state_commander import (
+    RandomInitialStateCommander,
+)
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedEnvModel,
@@ -36,3 +41,15 @@ class OracleCommanderFailureFinder(CommanderFailureFinder):
         traj_idx: int,
     ) -> Commander[ObsType, ActType, CommandType]:
         return self._oracle_commander  # type: ignore[return-value]
+
+    def get_initial_state(
+        self,
+        initial_space: Space[ObsType],
+        env: ConstraintBasedEnvModel[ObsType, ActType],
+        controller: ConstraintBasedController[ObsType, ActType, CommandType],
+        failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+    ) -> RandomInitialStateCommander[ObsType]:
+        seed = sample_seed_from_rng(self._rng)
+        initializer = RandomInitialStateCommander(initial_space)
+        initializer.seed(seed)
+        return initializer
