@@ -26,7 +26,7 @@ class OracleCommanderFailureFinder(CommanderFailureFinder):
     def __init__(
         self,
         oracle_commander: Commander[ObsType, ActType, CommandType],
-        initial_state_commander: InitialStateCommander[ObsType] = None,
+        initial_state_commander: InitialStateCommander[ObsType],
         *args,
         **kwargs,
     ) -> None:
