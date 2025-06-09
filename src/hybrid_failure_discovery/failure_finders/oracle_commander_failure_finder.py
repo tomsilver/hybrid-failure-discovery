@@ -26,11 +26,13 @@ class OracleCommanderFailureFinder(CommanderFailureFinder):
     def __init__(
         self,
         oracle_commander: Commander[ObsType, ActType, CommandType],
+        initial_state_commander: InitialStateCommander[ObsType] = None,
         *args,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         self._oracle_commander = oracle_commander
+        self._initial_state_commander = initial_state_commander
 
     def get_commander(
         self,
@@ -48,5 +50,4 @@ class OracleCommanderFailureFinder(CommanderFailureFinder):
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
     ) -> InitialStateCommander[ObsType]:
-        initializer = InitialStateCommander()
-        return initializer
+        return self._initial_state_commander
