@@ -1,6 +1,9 @@
 """Tests for oracle_commander_failure_finder.py."""
 
 from hybrid_failure_discovery.commander.commander import Commander
+from hybrid_failure_discovery.commander.initial_state_commander import (
+    InitialStateCommander,
+)
 from hybrid_failure_discovery.controllers.hovercraft_controller import (
     HoverCraftCommand,
     HoverCraftController,
@@ -18,7 +21,7 @@ from hybrid_failure_discovery.failure_monitors.hovercraft_failure_monitor import
 )
 
 
-def test_oracle_commander_failure_finder() -> None:
+def test_oracle_initial_state_and_commander_failure_finder() -> None:
     """Tests for oracle_commander_failure_finder.py."""
 
     # Test failure finder in hovercraft env.
@@ -49,9 +52,30 @@ def test_oracle_commander_failure_finder() -> None:
         def update(self, action, next_state):
             self._current_state = next_state
 
+    class _OracleHoverCraftInitialStateCommander(InitialStateCommander):
+        """An oracle commander for the hovercraft environment."""
+
+        def __init__(self, scene_spec: HoverCraftSceneSpec, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._scene_spec = scene_spec
+
+        def initialize(self):
+            # Hard-coded initial state for testing
+            init_x, init_y = self._scene_spec.goal_pairs[0][0]
+            initial_state = HoverCraftState(
+                x=init_x,
+                vx=self._scene_spec.init_vx,
+                y=init_y,
+                vy=self._scene_spec.init_vy,
+                t=0.0,
+            )
+            breakpoint()  # Set a breakpoint here to inspect the initial state.
+            return initial_state
+
     env = HoverCraftEnv()
     controller = HoverCraftController(123, env.scene_spec)
     failure_monitor = HoverCraftFailureMonitor(env.scene_spec)
+    initial_state_commander = _OracleHoverCraftInitialStateCommander(env.scene_spec)
     commander = _OracleHoverCraftCommander(env.scene_spec)
     failure_finder = OracleCommanderFailureFinder(commander, seed=123)
     result = failure_finder.run(env, controller, failure_monitor)
