@@ -49,5 +49,5 @@ class OracleCommanderFailureFinder(CommanderFailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
-    ) -> InitialStateCommander[ObsType]:
+    ) -> InitialStateCommander:
         return self._initial_state_commander
