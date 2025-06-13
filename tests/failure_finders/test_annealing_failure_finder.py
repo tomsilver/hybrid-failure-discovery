@@ -45,7 +45,7 @@ def test_annealing_failure_finder():
 
     import imageio.v2 as iio
 
-    states = annealer.hc_state_traj  # HOvercraft trajectory
+    states = annealer.hc_state_traj  # Hovercraft trajectory
     imgs = [env._render_state(s) for s in states]
 
     # Find the root directory of the repository (the directory containing the .git folder)
