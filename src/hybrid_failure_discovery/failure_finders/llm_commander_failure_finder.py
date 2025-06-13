@@ -26,7 +26,8 @@ from hybrid_failure_discovery.failure_finders.commander_failure_finder import (
 from hybrid_failure_discovery.failure_finders.failure_finder import (
     FailureMonitor,
 )
-from hybrid_failure_discovery.structs import CommandType
+from hybrid_failure_discovery.structs import CommandType, Trajectory
+from hybrid_failure_discovery.utils import extend_trajectory_until_failure
 
 
 class LLMCommanderFailureFinder(CommanderFailureFinder):
@@ -49,9 +50,10 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
 
     def get_commander(
         self,
-        # env: ConstraintBasedEnvModel[ObsType, ActType],
-        # controller: ConstraintBasedController[ObsType, ActType, CommandType],
-        # failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+        env: ConstraintBasedEnvModel[ObsType, ActType],
+        controller: ConstraintBasedController[ObsType, ActType, CommandType],
+        failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+        traj_idx: int,
     ) -> Commander[ObsType, ActType, CommandType]:
 
         # previous_attempt_error: str | None = None
@@ -64,17 +66,21 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         #         return commander
         # raise RuntimeError("Failed to synthesize a commander with the LLM.")
         return self._commander
-    
+
     def get_initial_state(
         self,
-        # initial_space: Space[ObsType],
+        initial_space: Space[ObsType],
+        env: ConstraintBasedEnvModel[ObsType, ActType],
+        controller: ConstraintBasedController[ObsType, ActType, CommandType],
+        failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
     ) -> RandomInitialStateCommander[ObsType]:
         # seed = sample_seed_from_rng(self._rng)
         # initializer = RandomInitialStateCommander(initial_space)
         # initializer.seed(seed)
         return self._initial_state_commander
 
-    def get_initial_state_and_commander(self,
+    def get_initial_state_and_commander(
+        self,
         initial_space: Space[ObsType],
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
@@ -86,26 +92,42 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         llm_seed = sample_seed_from_rng(self._rng)
         if synthesize_initial_state:
             for _ in range(self._num_synthesis_retries):
-                
-                self._initial_state_commander, self._commander, previous_attempt_error = self._synthesize_initial_state_and_commander_with_llm(
-                    initial_space, env, controller, failure_monitor, llm_seed, previous_attempt_error
+
+                (
+                    self._initial_state_commander,
+                    self._commander,
+                    previous_attempt_error,
+                ) = self._synthesize_initial_state_and_commander_with_llm(
+                    env,
+                    controller,
+                    failure_monitor,
+                    llm_seed,
+                    previous_attempt_error,
                 )
-                if self._initial_state_commander is not None and self._commander is not None:
+                if (
+                    self._initial_state_commander is not None
+                    and self._commander is not None
+                ):
                     break
-            raise RuntimeError("Failed to synthesize initial state and commander with the LLM.")
         else:
             initial_state_commander_seed = sample_seed_from_rng(self._rng)
             self._initial_state_commander = RandomInitialStateCommander(initial_space)
             self._initial_state_commander.seed(initial_state_commander_seed)
 
             for _ in range(self._num_synthesis_retries):
-                self._commander, previous_attempt_error = self._synthesize_commander_with_llm(
-                    env, controller, failure_monitor, llm_seed, previous_attempt_error
+                self._commander, previous_attempt_error = (
+                    self._synthesize_commander_with_llm(
+                        env,
+                        controller,
+                        failure_monitor,
+                        llm_seed,
+                        previous_attempt_error,
+                    )
                 )
                 if self._commander is not None:
                     break
-            raise RuntimeError("Failed to synthesize a commander with the LLM.")
-
+        if self._initial_state_commander is None or self._commander is None:
+            raise RuntimeError("Failed to synthesize commanders with the LLM.")
 
     def _synthesize_commander_with_llm(
         self,
@@ -214,10 +236,8 @@ Your class should be called SynthesizedCommander() and should take no arguments 
 
         return synthesized_commander, ""
 
-
     def _synthesize_initial_state_and_commander_with_llm(
         self,
-        initial_space: Space[ObsType],
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
@@ -234,9 +254,7 @@ Your class should be called SynthesizedCommander() and should take no arguments 
         controller_source = _get_source_code_from_obj(controller)
         failure_monitor_source = _get_source_code_from_obj(failure_monitor)
         commander_source = inspect.getsource(Commander)
-        initial_state_commander_source = inspect.getsource(
-            InitialStateCommander
-        )
+        initial_state_commander_source = inspect.getsource(InitialStateCommander)
 
         # Function to extract import statements from source code.
         def _extract_imports(source_code: str) -> str:
@@ -305,7 +323,7 @@ Initial State Commander Definition (NOTE: use `from {initial_state_commander_mod
 
 Please synthesize an InitialStateCommander and a Commander that would induce a failure.
 
-Your classes should be called SynthesizedInitialStateCommander() and SynthesizedCommander(), respectively and should take no arguments in the constructor.
+Your classes should be called SynthesizedInitialStateCommander() and SynthesizedCommander(). The SynthesizedInitialStateCommander() should take one argument in the constructor: initial_space, which is the output of env.get_initial_states(). The SynthesizedCommander() should take no arguments in the constructor.
 """
         if previous_attempt_error:
             prompt += f"\nPrevious attempt error: {previous_attempt_error}"
@@ -317,7 +335,9 @@ Your classes should be called SynthesizedInitialStateCommander() and Synthesized
         response, _ = self._llm.query(
             prompt, temperature=self._llm_temperature, seed=llm_seed
         )
-        synthesized_initial_state_commander_code, synthesized_commander_code = parse_python_code_from_llm_response(response)
+        synthesized_initial_state_commander_code, synthesized_commander_code = (
+            parse_python_code_from_llm_response(response)
+        )
 
         # Add imports.
         synthesized_initial_state_commander_code = (
@@ -332,10 +352,62 @@ Your classes should be called SynthesizedInitialStateCommander() and Synthesized
             exec(synthesized_commander_code, globals())  # pylint: disable=exec-used
             synthesized_commander = eval("SynthesizedCommander()")
 
-            exec(synthesized_initial_state_commander_code, globals())  # pylint: disable=exec-used
-            synthesized_initial_state_commander = eval("SynthesizedInitialStateCommander()")
+            exec(
+                synthesized_initial_state_commander_code, globals()
+            )  # pylint: disable=exec-used
+            synthesized_initial_state_commander = eval(
+                "SynthesizedInitialStateCommander()"
+            )
         except Exception as e:
             print(f"WARNING: Failed to execute synthesized commander code. Error: {e}")
             return None, None, str(e)
 
         return synthesized_initial_state_commander, synthesized_commander, ""
+
+    def run(
+        self,
+        env: ConstraintBasedEnvModel[ObsType, ActType],
+        controller: ConstraintBasedController[ObsType, ActType, CommandType],
+        failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
+        synthesize_initial_state: bool = True,
+    ) -> Trajectory[ObsType, ActType, CommandType] | None:
+        for traj_idx in range(self._max_num_trajectories):
+            # Initialize the particles (partial trajectories).
+            initial_space = env.get_initial_states()
+            self.get_initial_state_and_commander(
+                initial_space,
+                env,
+                controller,
+                failure_monitor,
+                synthesize_initial_state,
+            )
+            initializer = self.get_initial_state(
+                initial_space, env, controller, failure_monitor
+            )
+            initial_state = initializer.initialize()
+
+            init_traj: Trajectory[ObsType, ActType, CommandType] = Trajectory(
+                [initial_state], [], []
+            )
+
+            commander = self.get_commander(env, controller, failure_monitor, traj_idx)
+
+            def _termination_fn(traj: Trajectory) -> bool:
+                return len(traj.actions) >= self._max_trajectory_length
+
+            failure_traj, failure_found = extend_trajectory_until_failure(
+                init_traj,
+                env,
+                commander,
+                controller,
+                failure_monitor,
+                _termination_fn,
+                self._rng,
+            )
+
+            # Failure found, we're done!
+            if failure_found:
+                print(f"Found a failure after {traj_idx+1} trajectory samples")
+                return failure_traj
+        print("Failure finding failed.")
+        return None
