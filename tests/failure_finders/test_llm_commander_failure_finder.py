@@ -105,7 +105,9 @@ class SynthesizedCommander(Commander):
     controller = HoverCraftController(123, env.scene_spec)
     failure_monitor = HoverCraftFailureMonitor(env.scene_spec)
     failure_finder = LLMCommanderFailureFinder(llm, seed=123)
-    result = failure_finder.run(env, controller, failure_monitor)
+    result = failure_finder.run(
+        env, controller, failure_monitor, synthesize_initial_state=False
+    )
     assert result is not None
 
     # Uncomment to visualize.

@@ -2,7 +2,8 @@
 
 import ast
 import inspect
-from typing import Any
+import re
+from typing import Any, Optional
 
 from gymnasium.core import ActType, ObsType
 from gymnasium.spaces import Space
@@ -42,8 +43,8 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
-        self._commander = None
-        self._initial_state_commander = None
+        self._commander: Optional[Commander[ObsType, ActType, CommandType]] = None
+        self._initial_state_commander: Optional[InitialStateCommander[ObsType]] = None
         self._llm = llm
         self._llm_temperature = llm_temperature
         self._num_synthesis_retries = num_synthesis_retries
@@ -65,6 +66,10 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         #     if commander is not None:
         #         return commander
         # raise RuntimeError("Failed to synthesize a commander with the LLM.")
+        assert self._commander is not None, (
+            "Commander has not been synthesized yet. "
+            "Call get_initial_state_and_commander() first."
+        )
         return self._commander
 
     def get_initial_state(
@@ -73,10 +78,14 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         env: ConstraintBasedEnvModel[ObsType, ActType],
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
-    ) -> RandomInitialStateCommander[ObsType]:
+    ) -> InitialStateCommander:
         # seed = sample_seed_from_rng(self._rng)
         # initializer = RandomInitialStateCommander(initial_space)
         # initializer.seed(seed)
+        assert self._initial_state_commander is not None, (
+            "Initial state commander has not been synthesized yet. "
+            "Call get_initial_state_and_commander() first."
+        )
         return self._initial_state_commander
 
     def get_initial_state_and_commander(
@@ -243,7 +252,11 @@ Your class should be called SynthesizedCommander() and should take no arguments 
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
         llm_seed: int,
         previous_attempt_error: str | None = None,
-    ) -> tuple[Commander[ObsType, ActType, CommandType] | None, str]:
+    ) -> tuple[
+        InitialStateCommander | None,
+        Commander[ObsType, ActType, CommandType] | None,
+        str,
+    ]:
         # Extract the source code for prompting.
         def _get_source_code_from_obj(obj: Any) -> str:
             module = inspect.getmodule(obj.__class__)
@@ -335,9 +348,28 @@ Your classes should be called SynthesizedInitialStateCommander() and Synthesized
         response, _ = self._llm.query(
             prompt, temperature=self._llm_temperature, seed=llm_seed
         )
-        synthesized_initial_state_commander_code, synthesized_commander_code = (
-            parse_python_code_from_llm_response(response)
+        synthesized_initial_state_commander_code: str
+        synthesized_commander_code: str
+        synthesized_commanders = parse_python_code_from_llm_response(response)
+
+        # Use regex to split on the second class definition
+        matches = list(
+            re.finditer(
+                r"^class\s+SynthesizedCommander\b",
+                synthesized_commanders,
+                flags=re.MULTILINE,
+            )
         )
+
+        if not matches:
+            raise RuntimeError("Could not find SynthesizedCommander class in the code")
+
+        split_index = matches[0].start()
+
+        synthesized_initial_state_commander_code = synthesized_commanders[
+            :split_index
+        ].strip()
+        synthesized_commander_code = synthesized_commanders[split_index:].strip()
 
         # Add imports.
         synthesized_initial_state_commander_code = (
