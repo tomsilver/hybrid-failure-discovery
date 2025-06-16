@@ -336,7 +336,7 @@ Initial State Commander Definition (NOTE: use `from {initial_state_commander_mod
 
 Please synthesize an InitialStateCommander and a Commander that would induce a failure.
 
-Your classes should be called SynthesizedInitialStateCommander() and SynthesizedCommander(). The SynthesizedInitialStateCommander() should take one argument in the constructor: scene_spec, which is the output of type HoverCraftSceneSpec. The SynthesizedCommander() should take no arguments in the constructor.
+Your classes should be called SynthesizedInitialStateCommander() and SynthesizedCommander(). The SynthesizedInitialStateCommander() should take one argument in the constructor: scene_spec, which is an instance of the scene specification class for the corresponding environment. The SynthesizedCommander() should take no arguments in the constructor.
 """
         if previous_attempt_error:
             prompt += f"\nPrevious attempt error: {previous_attempt_error}"
