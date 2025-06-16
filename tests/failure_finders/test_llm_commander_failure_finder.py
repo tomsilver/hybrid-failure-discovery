@@ -194,13 +194,13 @@ class SynthesizedInitialStateCommander(InitialStateCommander):
     assert result is not None
 
     # Uncomment to visualize.
-    import imageio.v2 as iio
+    # import imageio.v2 as iio
 
-    states = result.observations
-    imgs = [env._render_state(s) for s in states]
-    path = Path("videos") / "test-llm-commander" / "llm_initial_and_commander_test.mp4"
-    path.parent.mkdir(exist_ok=True)
-    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    # states = result.observations
+    # imgs = [env._render_state(s) for s in states]
+    # path = Path("videos") / "test-llm-commander" / "llm_initial_and_commander_test.mp4"
+    # path.parent.mkdir(exist_ok=True)
+    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
 
 @pytest.mark.skip(reason="Don't want to run actual LLM in CI.")
@@ -271,17 +271,17 @@ def test_openai_llm_hovercraft_initial_state_and_commander_failure_finder():
     assert result is not None
 
     # Uncomment to visualize.
-    import imageio.v2 as iio
+    # import imageio.v2 as iio
 
-    states = result.observations
-    imgs = [env._render_state(s) for s in states]
-    path = (
-        Path("videos")
-        / "test-llm-commander"
-        / "hovercraft_llm_initial_and_commander_test.mp4"
-    )
-    path.parent.mkdir(exist_ok=True)
-    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    # states = result.observations
+    # imgs = [env._render_state(s) for s in states]
+    # path = (
+    #     Path("videos")
+    #     / "test-llm-commander"
+    #     / "hovercraft_llm_initial_and_commander_test.mp4"
+    # )
+    # path.parent.mkdir(exist_ok=True)
+    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
 
 @pytest.mark.skip(reason="Don't want to run actual LLM in CI.")
@@ -302,14 +302,14 @@ def test_openai_llm_blocks_initial_state_and_commander_failure_finder():
     assert result is not None
 
     # Uncomment to visualize.
-    import imageio.v2 as iio
+    # import imageio.v2 as iio
 
-    states = result.observations
-    imgs = [env._render_state(s) for s in states]
-    path = (
-        Path("videos")
-        / "test-llm-commander"
-        / "blocks_llm_initial_and_commander_test.mp4"
-    )
-    path.parent.mkdir(exist_ok=True)
-    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    # states = result.observations
+    # imgs = [env._render_state(s) for s in states]
+    # path = (
+    #     Path("videos")
+    #     / "test-llm-commander"
+    #     / "blocks_llm_initial_and_commander_test.mp4"
+    # )
+    # path.parent.mkdir(exist_ok=True)
+    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
