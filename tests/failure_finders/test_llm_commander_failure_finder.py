@@ -198,7 +198,7 @@ class SynthesizedInitialStateCommander(InitialStateCommander):
 
     states = result.observations
     imgs = [env._render_state(s) for s in states]
-    path = Path("videos") / "test-llm-commander" / "llm_commander_test.mp4"
+    path = Path("videos") / "test-llm-commander" / "llm_initial_and_commander_test.mp4"
     path.parent.mkdir(exist_ok=True)
     iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
@@ -250,3 +250,66 @@ def test_openai_llm_blocks_commander_failure_finder():
     # path = Path("videos") / "test-llm-commander" / "blocks_llm_commander_test.mp4"
     # path.parent.mkdir(exist_ok=True)
     # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+
+
+@pytest.mark.skip(reason="Don't want to run actual LLM in CI.")
+def test_openai_llm_hovercraft_initial_state_and_commander_failure_finder():
+    """Run an OpenAI LLM to create a failure finder commander for
+    hovercraft."""
+
+    llm = OpenAILLM("gpt-4o", Path("./llm_cache"), max_tokens=4096)
+
+    env = HoverCraftEnv()
+    controller = HoverCraftController(123, env.scene_spec)
+    failure_monitor = HoverCraftFailureMonitor(env.scene_spec)
+    failure_finder = LLMCommanderFailureFinder(
+        llm, seed=123, max_num_trajectories=10, max_trajectory_length=50
+    )
+    result = failure_finder.run(
+        env, controller, failure_monitor, synthesize_initial_state=True
+    )
+    assert result is not None
+
+    # Uncomment to visualize.
+    import imageio.v2 as iio
+
+    states = result.observations
+    imgs = [env._render_state(s) for s in states]
+    path = (
+        Path("videos")
+        / "test-llm-commander"
+        / "hovercraft_llm_initial_and_commander_test.mp4"
+    )
+    path.parent.mkdir(exist_ok=True)
+    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+
+
+@pytest.mark.skip(reason="Don't want to run actual LLM in CI.")
+def test_openai_llm_blocks_initial_state_and_commander_failure_finder():
+    """Run an OpenAI LLM to create a failure finder commander for blocks."""
+
+    llm = OpenAILLM("gpt-4o", Path("./llm_cache"), max_tokens=4096)
+
+    env = BlocksEnv()
+    controller = BlocksController(123, env.scene_spec)
+    failure_monitor = BlocksFailureMonitor()
+    failure_finder = LLMCommanderFailureFinder(
+        llm, seed=123, max_trajectory_length=1000
+    )
+    result = failure_finder.run(
+        env, controller, failure_monitor, synthesize_initial_state=True
+    )
+    assert result is not None
+
+    # Uncomment to visualize.
+    import imageio.v2 as iio
+
+    states = result.observations
+    imgs = [env._render_state(s) for s in states]
+    path = (
+        Path("videos")
+        / "test-llm-commander"
+        / "blocks_llm_initial_and_commander_test.mp4"
+    )
+    path.parent.mkdir(exist_ok=True)
+    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])

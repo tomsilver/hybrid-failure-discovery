@@ -43,8 +43,8 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
-        self._commander: Optional[Commander[ObsType, ActType, CommandType]] = None
-        self._initial_state_commander: Optional[InitialStateCommander[ObsType]] = None
+        self._commander: Optional[Commander] = None
+        self._initial_state_commander: Optional[InitialStateCommander] = None
         self._llm = llm
         self._llm_temperature = llm_temperature
         self._num_synthesis_retries = num_synthesis_retries
@@ -336,7 +336,7 @@ Initial State Commander Definition (NOTE: use `from {initial_state_commander_mod
 
 Please synthesize an InitialStateCommander and a Commander that would induce a failure.
 
-Your classes should be called SynthesizedInitialStateCommander() and SynthesizedCommander(). The SynthesizedInitialStateCommander() should take one argument in the constructor: initial_space, which is the output of env.get_initial_states(). The SynthesizedCommander() should take no arguments in the constructor.
+Your classes should be called SynthesizedInitialStateCommander() and SynthesizedCommander(). The SynthesizedInitialStateCommander() should take one argument in the constructor: scene_spec, which is the output of type HoverCraftSceneSpec. The SynthesizedCommander() should take no arguments in the constructor.
 """
         if previous_attempt_error:
             prompt += f"\nPrevious attempt error: {previous_attempt_error}"
@@ -388,7 +388,7 @@ Your classes should be called SynthesizedInitialStateCommander() and Synthesized
                 synthesized_initial_state_commander_code, globals()
             )  # pylint: disable=exec-used
             synthesized_initial_state_commander = eval(
-                "SynthesizedInitialStateCommander()"
+                "SynthesizedInitialStateCommander(env.scene_spec)"
             )
         except Exception as e:
             print(f"WARNING: Failed to execute synthesized commander code. Error: {e}")
