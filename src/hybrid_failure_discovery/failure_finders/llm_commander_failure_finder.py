@@ -384,9 +384,9 @@ Your classes should be called SynthesizedInitialStateCommander() and Synthesized
             exec(synthesized_commander_code, globals())  # pylint: disable=exec-used
             synthesized_commander = eval("SynthesizedCommander()")
 
-            exec(
+            exec(  # pylint: disable=exec-used
                 synthesized_initial_state_commander_code, globals()
-            )  # pylint: disable=exec-used
+            )
             synthesized_initial_state_commander = eval(
                 "SynthesizedInitialStateCommander(env.scene_spec)"
             )
