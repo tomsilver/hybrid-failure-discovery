@@ -7,7 +7,6 @@ from typing import Any
 
 from gymnasium.core import ActType, ObsType
 from gymnasium.spaces import Space
-from PIL import Image
 from tomsutils.llm import LargeLanguageModel, parse_python_code_from_llm_response
 from tomsutils.utils import sample_seed_from_rng
 
