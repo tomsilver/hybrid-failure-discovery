@@ -3,10 +3,11 @@
 import ast
 import inspect
 import re
-from typing import Any, Optional
+from typing import Any
 
 from gymnasium.core import ActType, ObsType
 from gymnasium.spaces import Space
+from PIL import Image
 from tomsutils.llm import LargeLanguageModel, parse_python_code_from_llm_response
 from tomsutils.utils import sample_seed_from_rng
 
@@ -43,8 +44,8 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
-        self._commander: Optional[Commander] = None
-        self._initial_state_commander: Optional[InitialStateCommander] = None
+        self._commander: Commander | None = None
+        self._initial_state_commander: InitialStateCommander | None = None
         self._llm = llm
         self._llm_temperature = llm_temperature
         self._num_synthesis_retries = num_synthesis_retries
@@ -57,15 +58,6 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         traj_idx: int,
     ) -> Commander[ObsType, ActType, CommandType]:
 
-        # previous_attempt_error: str | None = None
-        # for _ in range(self._num_synthesis_retries):
-        #     llm_seed = sample_seed_from_rng(self._rng)
-        #     commander, previous_attempt_error = self._synthesize_commander_with_llm(
-        #         env, controller, failure_monitor, llm_seed, previous_attempt_error
-        #     )
-        #     if commander is not None:
-        #         return commander
-        # raise RuntimeError("Failed to synthesize a commander with the LLM.")
         assert self._commander is not None, (
             "Commander has not been synthesized yet. "
             "Call get_initial_state_and_commander() first."
@@ -79,9 +71,6 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         controller: ConstraintBasedController[ObsType, ActType, CommandType],
         failure_monitor: FailureMonitor[ObsType, ActType, CommandType],
     ) -> InitialStateCommander:
-        # seed = sample_seed_from_rng(self._rng)
-        # initializer = RandomInitialStateCommander(initial_space)
-        # initializer.seed(seed)
         assert self._initial_state_commander is not None, (
             "Initial state commander has not been synthesized yet. "
             "Call get_initial_state_and_commander() first."
@@ -101,7 +90,6 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
         llm_seed = sample_seed_from_rng(self._rng)
         if synthesize_initial_state:
             for _ in range(self._num_synthesis_retries):
-
                 (
                     self._initial_state_commander,
                     self._commander,
@@ -122,6 +110,7 @@ class LLMCommanderFailureFinder(CommanderFailureFinder):
             initial_state_commander_seed = sample_seed_from_rng(self._rng)
             self._initial_state_commander = RandomInitialStateCommander(initial_space)
             self._initial_state_commander.seed(initial_state_commander_seed)
+            print("Synthesized initial state commander using random sampling.")
 
             for _ in range(self._num_synthesis_retries):
                 self._commander, previous_attempt_error = (
