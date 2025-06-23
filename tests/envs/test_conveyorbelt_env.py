@@ -23,7 +23,7 @@ def test_conveyorbelt_env_with_state_checks():
     """Detailed test of ConveyorBeltEnv with video recording and state
     transition checks."""
 
-    env = ConveyorBeltEnv(seed=42)
+    env = ConveyorBeltEnv()
 
     video_dir = Path("videos/test-conveyorbelt-env")
     video_dir.mkdir(parents=True, exist_ok=True)
@@ -41,7 +41,7 @@ def test_conveyorbelt_env_with_state_checks():
 
     print(f"\nInitial state values: {current_values}")
 
-    rng = np.random.default_rng(42)
+    rng = np.random.default_rng()
 
     for step in range(10):
         # Sample random action

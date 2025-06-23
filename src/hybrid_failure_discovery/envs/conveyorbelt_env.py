@@ -34,7 +34,7 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
     """A simplified 1D conveyor belt environment with load/unload behavior and
     3 actions."""
 
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 10}
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 1.5}  # slowed down fps
 
     def __init__(self, render_mode: str = "rgb_array", seed: int = 0) -> None:
         self.render_mode = render_mode
