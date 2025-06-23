@@ -64,20 +64,21 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
         # print(f"[DEBUG] Action taken: {action.index}")
 
         next_values = state.values.copy()
+        assert self._np_random is not None
 
         if action.index == 0:
             # print("[DEBUG] No-op: Do nothing")
             new_value = None
 
         elif action.index == 1:
-            new_value = np.float32(self._np_random.random())
+            new_value = float(self._np_random.random())
             # print("[DEBUG] Shift left and load new box on the right")
             next_values[:-1] = next_values[1:]
             next_values[-1] = new_value
             # print(f"[DEBUG] Loaded new value: {new_value:.2f}")
 
         elif action.index == 2:
-            new_value = np.float32(self._np_random.random())
+            new_value = float(self._np_random.random())
             # print("[DEBUG] Shift right and load new box on the left")
             next_values[1:] = next_values[:-1]
             next_values[0] = new_value
@@ -104,7 +105,9 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
     ) -> tuple[float, bool]:
         return 0.0, False
 
-    def _render_state(self, state: ConveyorBeltState) -> RenderFrame:
+    def _render_state(
+        self, state: ConveyorBeltState
+    ) -> RenderFrame | list[RenderFrame] | None:
         if self.render_mode != "rgb_array":
             raise NotImplementedError(f"Unsupported render mode: {self.render_mode}")
 
@@ -187,7 +190,9 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
                 zorder=3,
             )
 
-        def draw_3d_box(x, y, width, height, value):
+        def draw_3d_box(
+            x: float, y: float, width: float, height: float, value: float
+        ) -> None:
             base_color = plt.get_cmap("viridis")(value)
             top_color = tuple(min(c * 1.3, 1) for c in base_color[:3]) + (
                 base_color[3],
@@ -239,4 +244,4 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
         plt.close(fig)
 
         self._step_count += 1
-        return image
+        return image  # type: ignore
