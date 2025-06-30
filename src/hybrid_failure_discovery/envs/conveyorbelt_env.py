@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from gymnasium.core import RenderFrame
 from numpy.typing import NDArray
-from tomsutils.spaces import EnumSpace
+from tomsutils.spaces import EnumSpace, FunctionalSpace
 from tomsutils.utils import fig2data
 
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
@@ -20,14 +20,27 @@ class ConveyorBeltState:
     """Represents the current state of the conveyor belt, including box
     values."""
 
-    values: NDArray[np.float32]  # Vector of 6 float32s representing the state
+    values: NDArray[np.float32]
 
 
 @dataclass(frozen=True)
 class ConveyorBeltAction:
     """Represents a discrete action taken in the conveyor belt environment."""
 
-    index: int  # Discrete action index from 0 to 2
+    index: int  # Discrete action index from 0 to 2 representing directionality taken
+
+
+@dataclass(frozen=True)
+class ConveyorBeltSceneSpec:  # define 6 values for initial state function
+    """''setting values for the boxes (evenly spaced within a defined range for
+    initial states)"""
+
+    init_box1: float = 0.3
+    init_box2: float = 0.4
+    init_box3: float = 0.5
+    init_box4: float = 0.6
+    init_box5: float = 0.7
+    init_box6: float = 0.8
 
 
 class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltAction]):
@@ -36,60 +49,79 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
 
     metadata = {"render_modes": ["rgb_array"], "render_fps": 1.5}  # slowed down fps
 
-    def __init__(self, render_mode: str = "rgb_array", seed: int = 0) -> None:
+    def __init__(
+        self,
+        render_mode: str = "rgb_array",
+        scene_spec: ConveyorBeltSceneSpec = ConveyorBeltSceneSpec(),
+        seed: int = 0,
+    ) -> None:
+        self.scene_spec = scene_spec
         self.render_mode = render_mode
         self.observation_dim = 6
+
         self._last_inserted_value: float | None = None
         self.action_dim = 3  # Now only actions 0, 1, 2 are valid
         super().__init__(seed)
+        self._rng = np.random.default_rng(seed)
 
         self._step_count = 0
 
-    def _create_action_space(self):
-        return range(self.action_dim)
+    def _create_action_space(self) -> FunctionalSpace[ConveyorBeltAction]:
+        return FunctionalSpace(
+            contains_fn=lambda x: isinstance(x, ConveyorBeltAction),
+            sample_fn=lambda rng: ConveyorBeltAction(
+                index=rng.integers(0, self.action_dim)
+            ),
+        )
 
     def _get_obs(self) -> ConveyorBeltState:
         assert self._current_state is not None
         return self._current_state
 
-    def get_initial_states(self) -> EnumSpace[ConveyorBeltState]:
-        assert self._np_random is not None
-        init_values = self._np_random.random(self.observation_dim).astype(np.float32)
-        init_state = ConveyorBeltState(values=init_values)
-        return EnumSpace([init_state])
+    def get_initial_states(
+        self,
+    ) -> EnumSpace[ConveyorBeltState]:  # pass in values from scene spec
+        values = np.array(
+            [
+                self.scene_spec.init_box1,
+                self.scene_spec.init_box2,
+                self.scene_spec.init_box3,
+                self.scene_spec.init_box4,
+                self.scene_spec.init_box5,
+                self.scene_spec.init_box6,
+            ],
+            dtype=np.float32,
+        )
+        state = ConveyorBeltState(values)
+        return EnumSpace([state])
 
     def get_next_states(
         self, state: ConveyorBeltState, action: ConveyorBeltAction
     ) -> EnumSpace[ConveyorBeltState]:
-        # print(f"[DEBUG] Action taken: {action.index}")
 
         next_values = state.values.copy()
         assert self._np_random is not None
 
         if action.index == 0:
-            # print("[DEBUG] No-op: Do nothing")
             new_value = None
 
-        elif action.index == 1:
-            new_value = float(self._np_random.random())
-            # print("[DEBUG] Shift left and load new box on the right")
+        elif action.index == 1:  # new val added by incrementing (by 0.1)
+            last_val = next_values[-1]
+            new_value = min(last_val + 0.1, 1.0)
             next_values[:-1] = next_values[1:]
             next_values[-1] = new_value
-            # print(f"[DEBUG] Loaded new value: {new_value:.2f}")
 
-        elif action.index == 2:
-            new_value = float(self._np_random.random())
-            # print("[DEBUG] Shift right and load new box on the left")
+        elif action.index == 2:  # new val added by decrementing (by 0.1)
+            first_val = next_values[0]
+            new_value = max(first_val - 0.1, 0.0)
             next_values[1:] = next_values[:-1]
             next_values[0] = new_value
-            # print(f"[DEBUG] Loaded new value: {new_value:.2f}")
 
         else:
-            print(f"[WARNING] Invalid action index: {action.index}")
+            raise ValueError(f"Invalid action index: {action.index}")
 
         self._last_inserted_value = new_value
         next_state = ConveyorBeltState(values=next_values.astype(np.float32))
-        # print(f"[DEBUG] State after:  {next_state.values}")
         return EnumSpace([next_state])
 
     def actions_are_equal(
@@ -194,10 +226,10 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
             x: float, y: float, width: float, height: float, value: float
         ) -> None:
             base_color = plt.get_cmap("viridis")(value)
-            top_color = tuple(min(c * 1.3, 1) for c in base_color[:3]) + (
-                base_color[3],
-            )
-            side_color = tuple(c * 0.7 for c in base_color[:3]) + (base_color[3],)
+            top_rgb = np.minimum(np.array(base_color[:3]) * 1.3, 1.0)
+            top_color = (*top_rgb, base_color[3])
+            side_rgb = np.array(base_color[:3]) * 0.7
+            side_color = (*side_rgb, base_color[3])
 
             front = plt.Rectangle((x, y), width, height, color=base_color, zorder=3)
             ax.add_patch(front)
