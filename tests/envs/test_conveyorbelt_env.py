@@ -5,7 +5,7 @@ This module tests the functionality of the ConveyorBeltEnv class, including:
 - Proper video recording during environment interaction
 - Correct insertion and shifting behavior of box values on the conveyor belt
 """
-# TODO: Remove prints when done fixing per code review
+
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +22,7 @@ from hybrid_failure_discovery.envs.conveyorbelt_env import (
 def test_conveyorbelt_env_with_state_checks():
     """Detailed test of ConveyorBeltEnv with video recording and state
     transition checks."""
-    
+
     env = ConveyorBeltEnv()
     video_dir = Path("videos/test-conveyorbelt-env")
     video_dir.mkdir(parents=True, exist_ok=True)
@@ -53,7 +53,7 @@ def test_conveyorbelt_env_with_state_checks():
         next_values = obs.values
         expected_values = current_values.copy()
         if action_index == 0:
-        # Reverse: all values set to -1.0
+            # Reverse: all values set to -1.0
             expected_values[:] = -1.0
         elif action_index == 1:
             # Stop: all values set to 0.0
