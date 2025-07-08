@@ -17,30 +17,34 @@ from hybrid_failure_discovery.envs.constraint_based_env_model import (
 
 @dataclass(frozen=True)
 class ConveyorBeltState:
-    """Represents the current state of the conveyor belt, including box
-    values."""
+    """Represents the current state of the conveyor belt, the values of boxes 
+    1 - 6 display the current velocity of the conveyor belt (and consequently 
+    simultaneous speed of all the boxes) reflective of the action taken."""
 
     values: NDArray[np.float32]
 
 
 @dataclass(frozen=True)
 class ConveyorBeltAction:
-    """Represents a discrete action taken in the conveyor belt environment."""
+    """Represents a discrete action taken in the conveyor belt environment. Where an action of 
+    index 0 represents moving in reverse (-1.0 m/s), an action of index 1 represents no update or action taken,
+    an action of index 2 represents moving forward slowly (0.5 m/s),  an action of index 3 represents moving 
+    forward at a normal pace (1.0 m/s), an action of index 4 represents moving forward fast (1.5 m/s)."""
 
     index: int  # Discrete action index from 0 to 2 representing directionality taken
 
 
 @dataclass(frozen=True)
-class ConveyorBeltSceneSpec:  # define 6 values for initial state function
-    """''setting values for the boxes (evenly spaced within a defined range for
-    initial states)"""
+class ConveyorBeltSceneSpec:
+    """Setting values for the boxes that initially represent the normal speed of the 
+    conveyer belt (1.0 m/s)"""
 
-    init_box1: float = 0.3
-    init_box2: float = 0.4
-    init_box3: float = 0.5
-    init_box4: float = 0.6
-    init_box5: float = 0.7
-    init_box6: float = 0.8
+    init_box1: float = 1.0
+    init_box2: float = 1.0
+    init_box3: float = 1.0
+    init_box4: float = 1.0
+    init_box5: float = 1.0
+    init_box6: float = 1.0
 
 
 class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltAction]):
@@ -60,7 +64,7 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
         self.observation_dim = 6
 
         self._last_inserted_value: float | None = None
-        self.action_dim = 3  # Now only actions 0, 1, 2 are valid
+        self.action_dim = 5  # Only actions 0, 1, 2, 3, 4 are valid
         super().__init__(seed)
         self._rng = np.random.default_rng(seed)
 
@@ -80,7 +84,7 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
 
     def get_initial_states(
         self,
-    ) -> EnumSpace[ConveyorBeltState]:  # pass in values from scene spec
+    ) -> EnumSpace[ConveyorBeltState]: 
         values = np.array(
             [
                 self.scene_spec.init_box1,
@@ -98,30 +102,26 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
     def get_next_states(
         self, state: ConveyorBeltState, action: ConveyorBeltAction
     ) -> EnumSpace[ConveyorBeltState]:
-
-        next_values = state.values.copy()
         assert self._np_random is not None
 
-        if action.index == 0:
-            new_value = None
-
-        elif action.index == 1:  # new val added by incrementing (by 0.1)
-            last_val = next_values[-1]
-            new_value = min(last_val + 0.1, 1.0)
-            next_values[:-1] = next_values[1:]
-            next_values[-1] = new_value
-
-        elif action.index == 2:  # new val added by decrementing (by 0.1)
-            first_val = next_values[0]
-            new_value = max(first_val - 0.1, 0.0)
-            next_values[1:] = next_values[:-1]
-            next_values[0] = new_value
-
+        if action.index == 0:      # Reverse
+            new_value = -1.0
+        elif action.index == 1:    # Stop
+            new_value = 0.0
+        elif action.index == 2:    # Slow Forward
+            new_value = 0.5
+        elif action.index == 3:    # Normal Speed
+            new_value = 1.0
+        elif action.index == 4:    # Fast
+            new_value = 1.5
         else:
             raise ValueError(f"Invalid action index: {action.index}")
 
+        # Set all values to the selected speed
+        next_values = np.full_like(state.values, fill_value=new_value, dtype=np.float32)
+
         self._last_inserted_value = new_value
-        next_state = ConveyorBeltState(values=next_values.astype(np.float32))
+        next_state = ConveyorBeltState(values=next_values)
         return EnumSpace([next_state])
 
     def actions_are_equal(
@@ -225,7 +225,13 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
         def draw_3d_box(
             x: float, y: float, width: float, height: float, value: float
         ) -> None:
-            base_color = plt.get_cmap("viridis")(value)
+            color_min = -1.5
+            color_max = 1.5
+            normalized_value = (value - color_min) / (color_max - color_min)
+            # Clamp to [0,1] 
+            normalized_value = np.clip(normalized_value, 0.0, 1.0)
+
+            base_color = plt.get_cmap("viridis")(normalized_value)
             top_rgb = np.minimum(np.array(base_color[:3]) * 1.3, 1.0)
             top_color = (*top_rgb, base_color[3])
             side_rgb = np.array(base_color[:3]) * 0.7

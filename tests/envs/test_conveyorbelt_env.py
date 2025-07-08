@@ -5,7 +5,7 @@ This module tests the functionality of the ConveyorBeltEnv class, including:
 - Proper video recording during environment interaction
 - Correct insertion and shifting behavior of box values on the conveyor belt
 """
-
+# TODO: Remove prints when done fixing per code review
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +22,7 @@ from hybrid_failure_discovery.envs.conveyorbelt_env import (
 def test_conveyorbelt_env_with_state_checks():
     """Detailed test of ConveyorBeltEnv with video recording and state
     transition checks."""
-
+    
     env = ConveyorBeltEnv()
     video_dir = Path("videos/test-conveyorbelt-env")
     video_dir.mkdir(parents=True, exist_ok=True)
@@ -33,11 +33,12 @@ def test_conveyorbelt_env_with_state_checks():
         episode_trigger=lambda episode_id: episode_id == 0,
     )
 
+    # ensures reproducability
+    wrapped_env.action_space.seed(seed=42)
     # Reset environment and get initial state
     state, _ = wrapped_env.reset(seed=42)
     assert isinstance(state, ConveyorBeltState)
     current_values = state.values.copy()
-    print(f"\nInitial state values: {current_values}")
 
     for _ in range(10):
         # Sample random action directly (returns ConveyorBeltAction)
@@ -51,17 +52,21 @@ def test_conveyorbelt_env_with_state_checks():
 
         next_values = obs.values
         expected_values = current_values.copy()
-
         if action_index == 0:
-            pass  # No-op
+        # Reverse: all values set to -1.0
+            expected_values[:] = -1.0
         elif action_index == 1:
-            print("Shift left, add right")
-            expected_values[:-1] = current_values[1:]
-            expected_values[-1] = next_values[-1]  # Preserve new value
+            # Stop: all values set to 0.0
+            expected_values[:] = 0.0
         elif action_index == 2:
-            print("Shift right, add left")
-            expected_values[1:] = current_values[:-1]
-            expected_values[0] = next_values[0]  # Preserve new value
+            # Slow Forward: all values set to 0.5
+            expected_values[:] = 0.5
+        elif action_index == 3:
+            # Normal Speed: all values set to 1.0
+            expected_values[:] = 1.0
+        elif action_index == 4:
+            # Fast: all values set to 1.5
+            expected_values[:] = 1.5
         else:
             pytest.fail(f"Unexpected action index: {action_index}")
 
@@ -73,9 +78,6 @@ def test_conveyorbelt_env_with_state_checks():
 
         current_values = next_values.copy()
 
-        # Reset if episode ends (not expected for this env, but good practice)
-        if terminated or truncated:
-            state, _ = wrapped_env.reset()
-            current_values = state.values.copy()
+        assert terminated or truncated is False, "End of episode, invalid reset"
 
     wrapped_env.close()
