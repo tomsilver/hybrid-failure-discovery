@@ -129,7 +129,7 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
         }
         new_speed = speed_map[action.index]
 
-        positions = list(state.positions.copy())
+        positions = list(state.positions)
         velocities = list(np.full_like(state.velocities, new_speed))
         falling_heights = list(state.falling_heights.copy())
 
@@ -142,7 +142,7 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
 
         # Predict positions after movement for non-falling boxes
         predicted_positions = []
-        for p, v, h in zip(positions, velocities, falling_heights):
+        for p, v, h in zip(positions, velocities, falling_heights, strict=True):
             if h > 0.0:
                 predicted_positions.append(p)  # falling boxes don't move horizontally
             else:
