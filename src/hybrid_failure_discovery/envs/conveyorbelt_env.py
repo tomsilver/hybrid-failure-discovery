@@ -17,61 +17,70 @@ from hybrid_failure_discovery.envs.constraint_based_env_model import (
 
 @dataclass(frozen=True)
 class ConveyorBeltState:
-    """Represents the current state of the conveyor belt, the values of boxes
-    1 - 6 display the current velocity of the conveyor belt (and consequently
-    simultaneous speed of all the boxes) reflective of the action taken."""
+    """A state in the conveyor belt environment."""
 
-    values: NDArray[np.float32]
+    positions: NDArray[np.float32]
+    velocities: NDArray[np.float32]
+    falling_heights: NDArray[np.float32]  # height above belt (0 if on belt)
 
 
 @dataclass(frozen=True)
 class ConveyorBeltAction:
-    """Represents a discrete action taken in the conveyor belt environment.
+    """An action in the conveyor belt environment."""
 
-    Where an action of index 0 represents moving in reverse (-1.0 m/s),
-    an action of index 1 represents no update or action taken, an action
-    of index 2 represents moving forward slowly (0.5 m/s),  an action of
-    index 3 represents moving forward at a normal pace (1.0 m/s), an
-    action of index 4 represents moving forward fast (1.5 m/s).
-    """
-
-    index: int  # Discrete action index from 0 to 2 representing directionality taken
+    index: int
 
 
 @dataclass(frozen=True)
 class ConveyorBeltSceneSpec:
-    """Setting values for the boxes that initially represent the normal speed
-    of the conveyer belt (1.0 m/s)"""
+    """Static hyperparameters for the conveyor belt environment."""
 
-    init_box1: float = 1.0
-    init_box2: float = 1.0
-    init_box3: float = 1.0
-    init_box4: float = 1.0
-    init_box5: float = 1.0
-    init_box6: float = 1.0
+    init_velocities: tuple[float, float, float, float, float, float] = (
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+    )
+    init_positions: tuple[float, float, float, float, float, float] = (
+        0.5,
+        1.25,
+        2.0,
+        2.75,
+        3.5,
+        4.25,
+    )
+    dt: float = 0.01
+    belt_length: float = 5.0
+    box_width: float = 0.4
+    box_height: float = 0.5
+    gravity: float = 9.81
+    drop_start_height: float = 1.0  # height from which boxes start dropping
+    min_spacing: float = 0.72  # minimal spacing between boxes to consider "free space"
 
 
 class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltAction]):
-    """A simplified 1D conveyor belt environment with load/unload behavior and
-    3 actions."""
+    """A 1D conveyor belt environment."""
 
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 1.5}  # slowed down fps
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 10}
 
     def __init__(
         self,
         render_mode: str = "rgb_array",
         scene_spec: ConveyorBeltSceneSpec = ConveyorBeltSceneSpec(),
         seed: int = 0,
+        auto_drop: bool = True,
     ) -> None:
         self.scene_spec = scene_spec
         self.render_mode = render_mode
         self.observation_dim = 6
+        self.auto_drop = auto_drop
 
-        self._last_inserted_value: float | None = None
-        self.action_dim = 5  # Only actions 0, 1, 2, 3, 4 are valid
+        self.action_dim = 5
+        self.box_count = 6
         super().__init__(seed)
         self._rng = np.random.default_rng(seed)
-
         self._step_count = 0
 
     def _create_action_space(self) -> FunctionalSpace[ConveyorBeltAction]:
@@ -86,47 +95,93 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
         assert self._current_state is not None
         return self._current_state
 
-    def get_initial_states(
-        self,
-    ) -> EnumSpace[ConveyorBeltState]:
-        values = np.array(
+    def get_initial_states(self) -> EnumSpace[ConveyorBeltState]:
+        return EnumSpace(
             [
-                self.scene_spec.init_box1,
-                self.scene_spec.init_box2,
-                self.scene_spec.init_box3,
-                self.scene_spec.init_box4,
-                self.scene_spec.init_box5,
-                self.scene_spec.init_box6,
-            ],
-            dtype=np.float32,
+                ConveyorBeltState(
+                    positions=np.array(
+                        self.scene_spec.init_positions, dtype=np.float32
+                    ),
+                    velocities=np.array(
+                        self.scene_spec.init_velocities, dtype=np.float32
+                    ),
+                    falling_heights=np.zeros(self.box_count, dtype=np.float32),
+                )
+            ]
         )
-        state = ConveyorBeltState(values)
-        return EnumSpace([state])
 
     def get_next_states(
         self, state: ConveyorBeltState, action: ConveyorBeltAction
     ) -> EnumSpace[ConveyorBeltState]:
-        assert self._np_random is not None
+        dt = self.scene_spec.dt
+        gravity = self.scene_spec.gravity
+        belt_length = self.scene_spec.belt_length
+        box_width = self.scene_spec.box_width
+        drop_start_height = self.scene_spec.drop_start_height
+        min_spacing = self.scene_spec.min_spacing
 
-        if action.index == 0:  # Reverse
-            new_value = -1.0
-        elif action.index == 1:  # Stop
-            new_value = 0.0
-        elif action.index == 2:  # Slow Forward
-            new_value = 0.5
-        elif action.index == 3:  # Normal Speed
-            new_value = 1.0
-        elif action.index == 4:  # Fast
-            new_value = 1.5
-        else:
-            raise ValueError(f"Invalid action index: {action.index}")
+        speed_map = {
+            0: -1.0,  # reverse
+            1: 0.0,  # stop
+            2: 0.5,  # slow
+            3: 1.0,  # normal
+            4: 1.5,  # fast
+        }
+        new_speed = speed_map[action.index]
 
-        # Set all values to the selected speed
-        next_values = np.full_like(state.values, fill_value=new_value, dtype=np.float32)
+        positions = list(state.positions)
+        velocities = list(np.full_like(state.velocities, new_speed))
+        falling_heights = list(state.falling_heights.copy())
 
-        self._last_inserted_value = new_value
-        next_state = ConveyorBeltState(values=next_values)
-        return EnumSpace([next_state])
+        # Update falling heights (simulate falling boxes)
+        for i in range(len(falling_heights)):
+            if falling_heights[i] > 0:
+                falling_heights[i] -= gravity * dt
+                if falling_heights[i] <= 0:
+                    falling_heights[i] = 0.0
+
+        # Predict positions after movement for non-falling boxes
+        predicted_positions = []
+        for p, v, h in zip(positions, velocities, falling_heights, strict=True):
+            if h > 0.0:
+                predicted_positions.append(p)  # falling boxes don't move horizontally
+            else:
+                predicted_positions.append(p + v * dt)
+
+        # Now check if it's safe to drop a new box at 0 based on predicted positions
+        if self.auto_drop:
+            candidate_positions = predicted_positions + [0.0]
+            candidate_positions_sorted = sorted(candidate_positions)
+            diffs = np.diff(candidate_positions_sorted)
+            tolerance = 0.02
+            if len(diffs) == 0 or all(d + tolerance >= min_spacing for d in diffs):
+                positions.append(0.0)
+                velocities.append(new_speed)
+                falling_heights.append(drop_start_height)
+
+                # Update predicted_positions to include the new box at 0
+                predicted_positions.append(0.0)
+
+        # Remove boxes that have fallen off the belt after movement
+        removed = 0
+        keep_pos, keep_vel, keep_fall = [], [], []
+        for p, v, h in zip(predicted_positions, velocities, falling_heights):
+            if (p >= belt_length - box_width) or (p < 0):
+                removed += 1
+                continue
+            keep_pos.append(p)
+            keep_vel.append(v)
+            keep_fall.append(h)
+
+        return EnumSpace(
+            [
+                ConveyorBeltState(
+                    positions=np.array(keep_pos, dtype=np.float32),
+                    velocities=np.array(keep_vel, dtype=np.float32),
+                    falling_heights=np.array(keep_fall, dtype=np.float32),
+                )
+            ]
+        )
 
     def actions_are_equal(
         self, action1: ConveyorBeltAction, action2: ConveyorBeltAction
@@ -148,46 +203,62 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
             raise NotImplementedError(f"Unsupported render mode: {self.render_mode}")
 
         fig, ax = plt.subplots(figsize=(10, 3))
-        ax.set_xlim(0, 5)
+        ax.set_xlim(0, self.scene_spec.belt_length)
         ax.set_ylim(0, 2)
         ax.axis("off")
-        ax.set_title("Conveyor Belt State: 6 Boxes")
 
-        box_count = 6
-        box_width = 0.5
-        spacing = 0.25
-        box_height = 0.5
+        # Draw a red rectangle to visualize belt boundaries
+        ax.add_patch(
+            plt.Rectangle(
+                (0, 0),
+                self.scene_spec.belt_length,
+                2,
+                fill=False,
+                edgecolor="red",
+                linewidth=2,
+                zorder=10,
+            )
+        )
+
+        ax.add_patch(
+            plt.Rectangle((0, 0.4), self.scene_spec.belt_length, 0.3, color="#777777")
+        )
+        ax.set_title(f"Conveyor Belt State: {len(state.positions)} Boxes")
+
         belt_y = 0.3
         belt_height = 0.4
+        belt_length = self.scene_spec.belt_length
         y_pos = belt_y + belt_height
 
         belt_base = plt.Rectangle(
-            (0, belt_y), 5, belt_height, color="#555555", zorder=0
+            (0, belt_y), belt_length, belt_height, color="#555555", zorder=0
         )
         ax.add_patch(belt_base)
 
         top_coords = [
             (0, belt_y + belt_height),
             (0.3, belt_y + belt_height + 0.15),
-            (5.3, belt_y + belt_height + 0.15),
-            (5, belt_y + belt_height),
+            (belt_length + 0.3, belt_y + belt_height + 0.15),
+            (belt_length, belt_y + belt_height),
         ]
         belt_top = plt.Polygon(top_coords, color="#777777", zorder=2)
         ax.add_patch(belt_top)
 
         side_coords = [
-            (5, belt_y),
-            (5.3, belt_y + 0.15),
-            (5.3, belt_y + belt_height + 0.15),
-            (5, belt_y + belt_height),
+            (belt_length, belt_y),
+            (belt_length + 0.3, belt_y + 0.15),
+            (belt_length + 0.3, belt_y + belt_height + 0.15),
+            (belt_length, belt_y + belt_height),
         ]
         belt_side = plt.Polygon(side_coords, color="#444444", zorder=1)
         ax.add_patch(belt_side)
 
         roller_radius = 0.05
         roller_spacing = 1.0
-        roller_count = 6
-        angle = -(self._step_count * 0.15) % (2 * np.pi)
+        roller_count = int(np.ceil(belt_length / roller_spacing)) + 1
+        time_elapsed = self._step_count * self.scene_spec.dt
+        angular_speed = 2 * np.pi
+        angle = -(time_elapsed * angular_speed) % (2 * np.pi)
 
         for i in range(roller_count):
             roller_x = i * roller_spacing - 0.1
@@ -215,71 +286,73 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
                 [x1_start, x1_end],
                 [y1_start, y1_end],
                 color=axle_color,
-                linewidth=2,
-                zorder=3,
+                zorder=1,
+                lw=0.5,
             )
             ax.plot(
                 [x2_start, x2_end],
                 [y2_start, y2_end],
                 color=axle_color,
-                linewidth=2,
-                zorder=3,
+                zorder=1,
+                lw=0.5,
             )
 
-        def draw_3d_box(
-            x: float, y: float, width: float, height: float, value: float
-        ) -> None:
-            color_min = -1.5
-            color_max = 1.5
-            normalized_value = (value - color_min) / (color_max - color_min)
-            # Clamp to [0,1]
-            normalized_value = np.clip(normalized_value, 0.0, 1.0)
+        def draw_3d_box(x: float, height: float, value: float):
+            width, box_height = self.scene_spec.box_width, self.scene_spec.box_height
+            color_min, color_max = -1.5, 1.5
+            normalized = np.clip((value - color_min) / (color_max - color_min), 0, 1)
+            base_color = plt.get_cmap("viridis")(normalized)
 
-            base_color = plt.get_cmap("viridis")(normalized_value)
             top_rgb = np.minimum(np.array(base_color[:3]) * 1.3, 1.0)
-            top_color = (*top_rgb, base_color[3])
             side_rgb = np.array(base_color[:3]) * 0.7
-            side_color = (*side_rgb, base_color[3])
+            top_color = (*top_rgb, 1.0)
+            side_color = (*side_rgb, 1.0)
 
-            front = plt.Rectangle((x, y), width, height, color=base_color, zorder=3)
+            y = y_pos + height
+            front = plt.Rectangle((x, y), width, box_height, color=base_color, zorder=3)
             ax.add_patch(front)
 
-            top_coords = [
-                (x, y + height),
-                (x + 0.15, y + height + 0.15),
-                (x + width + 0.15, y + height + 0.15),
-                (x + width, y + height),
-            ]
-            top_face = plt.Polygon(top_coords, color=top_color, zorder=4)
+            top_face = plt.Polygon(
+                [
+                    (x, y + box_height),
+                    (x + 0.15, y + box_height + 0.15),
+                    (x + width + 0.15, y + box_height + 0.15),
+                    (x + width, y + box_height),
+                ],
+                color=top_color,
+                zorder=4,
+            )
             ax.add_patch(top_face)
 
-            side_coords = [
-                (x + width, y),
-                (x + width + 0.15, y + 0.15),
-                (x + width + 0.15, y + height + 0.15),
-                (x + width, y + height),
-            ]
-            side_face = plt.Polygon(side_coords, color=side_color, zorder=2)
+            side_face = plt.Polygon(
+                [
+                    (x + width, y),
+                    (x + width + 0.15, y + 0.15),
+                    (x + width + 0.15, y + box_height + 0.15),
+                    (x + width, y + box_height),
+                ],
+                color=side_color,
+                zorder=2,
+            )
             ax.add_patch(side_face)
 
             ax.text(
                 x + width / 2,
-                y + height / 2,
-                f"{value:.2f}",
-                color="white" if value > 0.5 else "black",
-                fontsize=12,
+                y + box_height / 2,
+                f"{value:.1f}",
                 ha="center",
                 va="center",
+                color="white" if value > 0.5 else "black",
                 zorder=5,
             )
 
-        total_width = box_count * box_width + (box_count - 1) * spacing
-        left_margin = (5 - total_width) / 2
-
-        for i in range(box_count):
-            val = state.values[i] if i < len(state.values) else 0.0
-            x_pos = left_margin + i * (box_width + spacing)
-            draw_3d_box(x_pos, y_pos, box_width, box_height, val)
+        for pos, height, vel in zip(
+            state.positions, state.falling_heights, state.velocities
+        ):
+            if pos < 0 or pos > self.scene_spec.belt_length:
+                print(f"  Skipping box out of belt bounds: pos={pos}")
+                continue
+            draw_3d_box(pos, height, vel)
 
         plt.tight_layout()
         image = fig2data(fig)
