@@ -1,7 +1,5 @@
 """Tests for hovercraft_controller.py."""
 
-from gymnasium.wrappers import RecordVideo
-
 from hybrid_failure_discovery.controllers.hovercraft_controller import (
     HoverCraftCommand,
     HoverCraftController,
@@ -17,7 +15,9 @@ def test_hovercraft_controller():
     env = HoverCraftEnv()
     controller = HoverCraftController(123, env.scene_spec)
 
-    env = RecordVideo(env, "videos/test-hovercraft-controller")
+    # Uncomment to create video.
+    # from gymnasium.wrappers import RecordVideo
+    # env = RecordVideo(env, "videos/test-hovercraft-controller")
 
     state, _ = env.reset(seed=123)
     controller.reset(state)
