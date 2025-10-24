@@ -1,4 +1,6 @@
-"""Tests for conveyorbelt_controller.py."""
+"""Tests for conveyorbelt_controller.py (drop/no-drop command)."""
+
+from pathlib import Path
 
 from gymnasium.wrappers import RecordVideo
 
@@ -6,44 +8,35 @@ from hybrid_failure_discovery.controllers.conveyorbelt_controller import (
     ConveyorBeltCommand,
     ConveyorBeltController,
 )
-from hybrid_failure_discovery.envs.conveyorbelt_env import (
-    ConveyorBeltEnv,
-    ConveyorBeltSceneSpec
-)
+from hybrid_failure_discovery.envs.conveyorbelt_env import ConveyorBeltEnv
 
 
-def test_conveyorbelt_controller():
-    """Tests for conveyorbelt_controller.py."""
+def test_conveyorbelt_controller_drop_commands():
+    """Drive the env with explicit drop/no-drop commands and ensure it runs
+    cleanly."""
+    # --- Env & controller setup ---
+    env = ConveyorBeltEnv()
+    controller = ConveyorBeltController(seed=123, scene_spec=env.scene_spec)
 
-    env = ConveyorBeltEnv(scene_spec=ConveyorBeltSceneSpec(init_positions=[0.1, 0.51, 0.92, 1.33, 1.74, 2.15]))
-
-    controller = ConveyorBeltController(123, env.scene_spec)
-
-    env = RecordVideo(env, "videos/test-conveyorbelt-controller")
+    video_dir = Path("videos/test-conveyorbelt-controller")
+    video_dir.mkdir(parents=True, exist_ok=True)
+    env = RecordVideo(env, str(video_dir), episode_trigger=lambda eid: eid == 0)
 
     state, _ = env.reset(seed=123)
     controller.reset(state)
 
-    for t in range(100):
-        # Alternate between speed commands for testing.
-        if t < 40:
-            command = ConveyorBeltCommand(target_speed=-1)  # stop
-        elif t > 41 and t < 45:
-            command = ConveyorBeltCommand(target_speed=1.5)
-        elif t > 45:
-            command = ConveyorBeltCommand(target_speed=-1)
-        else:  
-            command = ConveyorBeltCommand(target_speed=1.5)
-        # elif t < 100:
-        #     command = ConveyorBeltCommand(target_speed=0.5)  # slow
-        # elif t < 150:
-        #     command = ConveyorBeltCommand(target_speed=1.0)  # normal
-        # elif t < 200:
-        #     command = ConveyorBeltCommand(target_speed=1.5)  # fast
-        # else:
-        #     command = ConveyorBeltCommand(maintain_spacing=True)  # feedback mode
+    # --- Command schedule: drop at specific timesteps, otherwise don't drop ---
+    # e.g., drop at t in {0, 5, 10, 30, 31, 60, 90}
+    drop_times = {0, 5, 10, 30, 31, 60, 90}
 
-        action = controller.step(state, command)
-        state, _, _, _, _ = env.step(action)
+    for t in range(100):
+        command = ConveyorBeltCommand(drop_now=t in drop_times)
+        action = controller.step(
+            state, command
+        )  # controller returns a concrete ConveyorBeltAction
+        state, _, terminated, truncated, _ = env.step(action)
+
+        # Sanity: the test should not end early
+        assert not terminated and not truncated
 
     env.close()

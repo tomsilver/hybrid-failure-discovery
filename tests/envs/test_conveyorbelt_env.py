@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import numpy as np
 from gymnasium.wrappers import RecordVideo
 
 from hybrid_failure_discovery.envs.conveyorbelt_env import (
@@ -13,7 +12,8 @@ from hybrid_failure_discovery.envs.conveyorbelt_env import (
 
 
 def test_conveyorbelt_env_with_state_checks():
-    """Test ConveyorBeltEnvExternalDrop movement with box drops at a regular interval."""
+    """Test ConveyorBeltEnvExternalDrop movement with box drops at a regular
+    interval."""
     env = ConveyorBeltEnv()
     video_dir = Path("videos/test-conveyorbelt-env")
     video_dir.mkdir(parents=True, exist_ok=True)
@@ -27,11 +27,6 @@ def test_conveyorbelt_env_with_state_checks():
     wrapped_env.action_space.seed(42)
     state, _ = wrapped_env.reset(seed=42)
     assert isinstance(state, ConveyorBeltState)
-
-    current_positions = state.positions.copy()
-    belt_length = env.scene_spec.belt_length
-    box_width = env.scene_spec.box_width
-    dt = env.scene_spec.dt
 
     # Make a sequence of actions that drops boxes at a regular interval.
     action_bools = [True] + ([False] * 50) + [True] + ([False] * 50)
