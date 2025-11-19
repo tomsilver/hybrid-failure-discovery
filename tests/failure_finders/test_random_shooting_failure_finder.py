@@ -24,10 +24,10 @@ def test_random_shooting_failure_finder():
     assert result is not None
 
     # Uncomment to visualize.
-    # from pathlib import Path
-    # import imageio.v2 as iio
-    # states = result.observations
-    # imgs = [env._render_state(s) for s in states]
-    # path = Path("videos") / "test-random-shooting" / "random-shooting_test.mp4"
-    # path.parent.mkdir(exist_ok=True)
-    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    from pathlib import Path
+    import imageio.v2 as iio
+    states = result.observations
+    imgs = [env._render_state(s) for s in states]
+    path = Path("videos") / "test-random-shooting" / "random-shooting_test.mp4"
+    path.parent.mkdir(exist_ok=True)
+    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
