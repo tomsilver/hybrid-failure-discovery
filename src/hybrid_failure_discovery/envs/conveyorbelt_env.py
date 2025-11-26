@@ -50,7 +50,7 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
     """1D conveyor belt environment with external control for dropping
     packages."""
 
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 10}
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 50}
 
     def __init__(
         self,
