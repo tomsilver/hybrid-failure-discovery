@@ -1,8 +1,6 @@
-"""
-A corrected controller for the conveyor belt that guarantees collision-free
-drops by using ACTUAL state information (positions, falling heights,
-box width, min spacing).
-"""
+"""A corrected controller for the conveyor belt that guarantees collision-free
+drops by using ACTUAL state information (positions, falling heights, box width,
+min spacing)."""
 
 from dataclasses import dataclass
 from typing import Optional
@@ -29,7 +27,7 @@ class ConveyorBeltCommand:
       - fast : drop every ~0.7 seconds
     """
 
-    mode: str = "off"   # one of {"off", "slow", "mid", "fast"}
+    mode: str = "off"  # one of {"off", "slow", "mid", "fast"}
 
 
 class ConveyorBeltController(
@@ -55,9 +53,9 @@ class ConveyorBeltController(
         dt = scene_spec.dt
         self._mode_to_steps = {
             "off": None,
-            "slow": int(2.0 / dt),     # drop every 2.0 sec
-            "mid": int(1.2 / dt),      # drop every ~1.2 sec
-            "fast": int(0.7 / dt),     # drop every ~0.7 sec
+            "slow": int(2.0 / dt),  # drop every 2.0 sec
+            "mid": int(1.2 / dt),  # drop every ~1.2 sec
+            "fast": int(0.04 / dt),  # drop every ~0.04 sec
         }
 
         self._steps_since_last_drop = 10**9
@@ -67,21 +65,31 @@ class ConveyorBeltController(
         self._steps_since_last_drop = 10**9
 
     def _safe_to_drop(self, state: ConveyorBeltState) -> bool:
-        """Return True ONLY if dropping a new box will not collide."""
+        """Return True ONLY if dropping a new box will not collide.
 
-        box_width = self._scene_spec.box_width
+        NOTE: This method has deliberate faults to allow testing of failure detection:
+        1. Only checks min_spacing, ignoring box_width (allows overlaps)
+        2. Only checks if falling height > 0.05
+        """
+
         min_spacing = getattr(self._scene_spec, "min_spacing", 0.0)
-        required_gap = box_width + min_spacing
 
-        # 1. If any existing box is still falling → NEVER DROP
+        # FAULT 1: Only check if falling height is significant (> 0.05) instead of > 0.0
+        # This allows drops when boxes are almost landed (height 0.0-0.05),
+        # Made less severe (0.05 instead of 0.1) to make failures moderately rare
         for h in state.falling_heights:
-            if h > 0.0:
+            if h > 0.05:  # Should be > 0.0
                 return False
 
-        # 2. Look at the closest box to the drop position (x=0)
+        # FAULT 2: Only check min_spacing, ignoring box_width
+        # This means boxes can overlap (collide) if they satisfy min_spacing
+        # FAULT 3: Use reduced safety margin (80% of required gap)
+        # This makes the check less strict, allowing drops when slightly too close
         if len(state.positions) > 0:
             nearest = min(state.positions)
-            if nearest < required_gap:
+            # Should check: nearest < (box_width + min_spacing)
+            # But we only check min_spacing with 80% margin
+            if nearest < min_spacing * 0.8:  # Should be: < (box_width + min_spacing)
                 return False
 
         return True

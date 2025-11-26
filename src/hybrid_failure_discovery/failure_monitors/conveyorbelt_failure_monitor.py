@@ -70,4 +70,3 @@ class ConveyorBeltFailureMonitor(
         overlap_margin = min_gap - box_width
 
         return min(spacing_margin, overlap_margin)
-

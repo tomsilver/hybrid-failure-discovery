@@ -29,7 +29,16 @@ def test_conveyorbelt_env_with_state_checks():
     assert isinstance(state, ConveyorBeltState)
 
     # Make a sequence of actions that drops boxes at a regular interval.
-    action_bools = [True] + ([False] * 10) + [True] + ([False] * 50) + [True] + ([False] * 40) + [True] + ([False] * 70)
+    action_bools = (
+        [True]
+        + ([False] * 10)
+        + [True]
+        + ([False] * 50)
+        + [True]
+        + ([False] * 40)
+        + [True]
+        + ([False] * 70)
+    )
 
     for action_bool in action_bools:
         action = ConveyorBeltAction(action_bool)

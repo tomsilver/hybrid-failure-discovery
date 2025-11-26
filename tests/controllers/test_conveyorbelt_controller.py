@@ -1,4 +1,5 @@
-"""Tests for conveyorbelt_controller.py (mode-based auto-drop, varied modes)."""
+"""Tests for conveyorbelt_controller.py (mode-based auto-drop, varied
+modes)."""
 
 from pathlib import Path
 
@@ -12,8 +13,9 @@ from hybrid_failure_discovery.envs.conveyorbelt_env import ConveyorBeltEnv
 
 
 def test_conveyorbelt_controller_varied_mode_schedule():
-    """Exercise the controller with a varied schedule of modes (off/slow/mid/fast)
-    and ensure the controller–env integration runs without errors.
+    """Exercise the controller with a varied schedule of modes
+    (off/slow/mid/fast) and ensure the controller–env integration runs without
+    errors.
 
     This is a smoke test: we just run the loop and print some diagnostics,
     similar in spirit to the hovercraft controller tests.
@@ -43,7 +45,7 @@ def test_conveyorbelt_controller_varied_mode_schedule():
         "fast",
     ]
 
-    # total_steps = 
+    # total_steps =
     steps_per_mode = 100
     total_drops = 0
     total_steps = 0
@@ -71,4 +73,6 @@ def test_conveyorbelt_controller_varied_mode_schedule():
             controller.reset(state)
 
     env.close()
-    print(f"[conveyorbelt_controller] total steps={total_steps}, total_drops={total_drops}")
+    print(
+        f"[conveyorbelt_controller] total steps={total_steps}, total_drops={total_drops}"
+    )
