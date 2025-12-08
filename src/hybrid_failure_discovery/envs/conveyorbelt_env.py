@@ -23,6 +23,7 @@ class ConveyorBeltState:
     positions: NDArray[np.float32]  # positions of packages on the conveyer belt
     falling_heights: NDArray[np.float32]  # height above belt (0 if on belt)
     step_count: int  # number of steps elapsed, mainly for visualization
+    exploded: bool = False  # whether the world has exploded
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ class ConveyorBeltAction:
     """An action in the conveyer belt environment."""
 
     drop_package: bool  # whether to drop a new package at the current time step
+    explode: bool = False  # whether the world explodes, which is probably a bad thing
 
 
 @dataclass(frozen=True)
@@ -136,6 +138,7 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
                     positions=np.array(keep_pos, dtype=np.float32),
                     falling_heights=np.array(keep_fall, dtype=np.float32),
                     step_count=state.step_count + 1,
+                    exploded=action.explode or state.exploded,
                 )
             ]
         )
@@ -151,7 +154,8 @@ class ConveyorBeltEnv(ConstraintBasedGymEnv[ConveyorBeltState, ConveyorBeltActio
         action: ConveyorBeltAction,
         next_state: ConveyorBeltState,
     ) -> tuple[float, bool]:
-        return 0.0, False
+        terminated = state.exploded
+        return 0.0, terminated
 
     def _render_state(
         self, state: ConveyorBeltState

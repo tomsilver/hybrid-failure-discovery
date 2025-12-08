@@ -118,8 +118,9 @@ class ConveyorBeltController(
             self._current_mode_sequence[-secret_len:]
             == self._secret_failure_mode_sequence
         ):
-            # TODO: trigger failure here
-            raise NotImplementedError
+            # KABOOM!
+            explode_action = ConveyorBeltAction(drop_package=False, explode=True)
+            return EnumSpace([explode_action])
 
         self._steps_since_last_drop += 1
 
