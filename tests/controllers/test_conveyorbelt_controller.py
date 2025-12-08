@@ -1,10 +1,6 @@
 """Tests for conveyorbelt_controller.py (mode-based auto-drop, varied
 modes)."""
 
-from pathlib import Path
-
-from gymnasium.wrappers import RecordVideo
-
 from hybrid_failure_discovery.controllers.conveyorbelt_controller import (
     ConveyorBeltCommand,
     ConveyorBeltController,
@@ -30,9 +26,12 @@ def test_conveyorbelt_controller_varied_mode_schedule():
         secret_failure_mode_sequence=secret_mode_sequence,
     )
 
-    video_dir = Path("videos/test-conveyorbelt-controller")
-    video_dir.mkdir(parents=True, exist_ok=True)
-    env = RecordVideo(env, str(video_dir), episode_trigger=lambda eid: eid == 0)
+    # Uncomment to make videos
+    # from pathlib import Path
+    # from gymnasium.wrappers import RecordVideo
+    # video_dir = Path("videos/test-conveyorbelt-controller")
+    # video_dir.mkdir(parents=True, exist_ok=True)
+    # env = RecordVideo(env, str(video_dir), episode_trigger=lambda eid: eid == 0)
 
     state, _ = env.reset(seed=123)
     controller.reset(state)
