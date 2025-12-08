@@ -62,7 +62,12 @@ def test_random_shooting_failure_finder_conveyorbelt_low():
 
     # Initialize environment, controller, and failure monitor
     env = ConveyorBeltEnv(scene_spec=scene_spec)
-    controller = ConveyorBeltController(seed=123, scene_spec=env.scene_spec)
+    secret_mode_sequence = ["fast", "slow", "mid", "slow", "fast"]
+    controller = ConveyorBeltController(
+        seed=123,
+        scene_spec=env.scene_spec,
+        secret_failure_mode_sequence=secret_mode_sequence,
+    )
     failure_monitor = ConveyorBeltFailureMonitor(env.scene_spec)
     # Low trajectory count - may not find failure
     failure_finder = RandomShootingFailureFinder(
@@ -103,7 +108,12 @@ def test_random_shooting_failure_finder_conveyorbelt():
     object.__setattr__(scene_spec, "min_spacing", 0.1)
 
     env = ConveyorBeltEnv(scene_spec=scene_spec)
-    controller = ConveyorBeltController(seed=123, scene_spec=env.scene_spec)
+    secret_mode_sequence = ["fast", "slow", "mid", "slow", "fast"]
+    controller = ConveyorBeltController(
+        seed=123,
+        scene_spec=env.scene_spec,
+        secret_failure_mode_sequence=secret_mode_sequence,
+    )
     failure_monitor = ConveyorBeltFailureMonitor(env.scene_spec)
     # Higher trajectory count - should find failure
     failure_finder = RandomShootingFailureFinder(

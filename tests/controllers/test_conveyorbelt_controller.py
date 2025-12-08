@@ -23,7 +23,12 @@ def test_conveyorbelt_controller_varied_mode_schedule():
 
     # --- Env & controller setup ---
     env = ConveyorBeltEnv()
-    controller = ConveyorBeltController(seed=123, scene_spec=env.scene_spec)
+    secret_mode_sequence = ["fast", "slow", "mid", "slow", "fast"]
+    controller = ConveyorBeltController(
+        seed=123,
+        scene_spec=env.scene_spec,
+        secret_failure_mode_sequence=secret_mode_sequence,
+    )
 
     video_dir = Path("videos/test-conveyorbelt-controller")
     video_dir.mkdir(parents=True, exist_ok=True)

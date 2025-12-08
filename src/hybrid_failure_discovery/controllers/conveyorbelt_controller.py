@@ -37,16 +37,20 @@ class ConveyorBeltController(
 ):
     """Collision-free auto-dropping controller.
 
-    Fixes:
-      - Uses ACTUAL state, not fake estimates
-      - Ensures falling boxes cannot be collided with
-      - Ensures landed boxes are spaced by ≥ box_width + min_spacing
-      - Mode-based timing is now safe and realistic
+    This controller has a "secret_failure_mode_sequence" which triggers
+    a failure whenever that sequence of modes is given in that exact
+    order.
     """
 
-    def __init__(self, seed: int, scene_spec: ConveyorBeltSceneSpec) -> None:
+    def __init__(
+        self,
+        seed: int,
+        scene_spec: ConveyorBeltSceneSpec,
+        secret_failure_mode_sequence: list[str],
+    ) -> None:
         super().__init__(seed)
         self._scene_spec = scene_spec
+        self._secret_failure_mode_sequence = secret_failure_mode_sequence
         self._initial_state: Optional[ConveyorBeltState] = None
 
         # Convert desired timing into steps
@@ -57,12 +61,17 @@ class ConveyorBeltController(
             "mid": int(1.2 / dt),  # drop every ~1.2 sec
             "fast": int(0.04 / dt),  # drop every ~0.04 sec
         }
+        # Check that the modes in the secret failure mode sequence are valid.
+        for mode in secret_failure_mode_sequence:
+            assert mode in self._mode_to_steps, f"Invalid mode: {mode}"
 
         self._steps_since_last_drop = 10**9
+        self._current_mode_sequence: list[str] = []
 
     def reset(self, initial_state: ConveyorBeltState) -> None:
         self._initial_state = initial_state
         self._steps_since_last_drop = 10**9
+        self._current_mode_sequence = []
 
     def _safe_to_drop(self, state: ConveyorBeltState) -> bool:
         """Return True ONLY if dropping a new box will not collide.
@@ -98,10 +107,24 @@ class ConveyorBeltController(
         self, state: ConveyorBeltState, command: ConveyorBeltCommand
     ) -> Space[ConveyorBeltAction]:
 
+        # Get the newly commanded mode
+        mode = command.mode
+        self._current_mode_sequence.append(mode)
+
+        # Check if the current mode sequence is the secret one, and trigger a failure
+        # if it is.
+        secret_len = len(self._secret_failure_mode_sequence)
+        if (
+            self._current_mode_sequence[-secret_len:]
+            == self._secret_failure_mode_sequence
+        ):
+            # TODO: trigger failure here
+            raise NotImplementedError
+
         self._steps_since_last_drop += 1
 
         # Determine timing requirement for the chosen mode
-        steps_required = self._mode_to_steps.get(command.mode, None)
+        steps_required = self._mode_to_steps[mode]
 
         if steps_required is None:
             # Mode = off
