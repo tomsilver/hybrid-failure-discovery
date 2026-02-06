@@ -7,6 +7,7 @@ from gymnasium.core import ActType, ObsType
 from tomsutils.utils import sample_seed_from_rng
 
 from hybrid_failure_discovery.commander.commander import Commander
+from hybrid_failure_discovery.commander.random_commander import RandomCommander
 from hybrid_failure_discovery.controllers.controller import Controller
 from hybrid_failure_discovery.envs.constraint_based_env_model import (
     ConstraintBasedEnvModel,
@@ -40,8 +41,10 @@ def extend_trajectory_until_failure(
     for t in range(len(actions)):
         # NOTE: this makes a strong assumption that controllers are
         # deterministic!! Check this assumption in a hacky way.
-        recovered_command = commander.get_command()
-        assert recovered_command == commands[t]
+        # Skip this check for RandomCommander since it's non-deterministic
+        if not isinstance(commander, RandomCommander):
+            recovered_command = commander.get_command()
+            assert recovered_command == commands[t]
         recovered_action = controller.step(states[t], commands[t])
         assert env.actions_are_equal(recovered_action, actions[t])
         failure_found = failure_monitor.step(commands[t], actions[t], states[t + 1])
