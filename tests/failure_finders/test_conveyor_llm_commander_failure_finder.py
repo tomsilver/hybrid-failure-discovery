@@ -39,12 +39,16 @@ class _MockLLM(LargeLanguageModel):
 
     def _sample_completions(self, prompt, imgs, temperature, seed, num_completions=1):
         del imgs  # unused
-        # Reuse the last completion if we run out (for cases where synthesis is called multiple times)
+        # Reuse the last completion if we run out
+        # (for cases where synthesis is called multiple times)
         if len(self.completions) == 0:
             # If we've exhausted all completions, reuse the last one we had
-            # This handles cases where get_initial_state_and_commander is called multiple times
+            # This handles cases where get_initial_state_and_commander
+            # is called multiple times
             if self._last_completions is None:
-                raise IndexError("No completions available and no previous completion to reuse")
+                raise IndexError(
+                    "No completions available and no previous completion to reuse"
+                )
             next_completions = self._last_completions
         else:
             next_completions = self.completions.pop(0)
@@ -82,8 +86,18 @@ class SynthesizedCommander(Commander):
         super().__init__(*args, **kwargs)
         self._current_state = None
         self._command_count = 0
-        # Secret failure sequence: ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
-        self._secret_sequence = ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
+        # Secret failure sequence:
+        # ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
+        self._secret_sequence = [
+            "fast",
+            "mid",
+            "fast",
+            "slow",
+            "off",
+            "slow",
+            "slow",
+            "fast",
+        ]
 
     def reset(self, initial_state):
         self._current_state = initial_state
@@ -108,7 +122,7 @@ class SynthesizedCommander(Commander):
 
     cache_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
     # Provide one completion - the mock will reuse it if needed
-    # (get_initial_state_and_commander may be called multiple times during run())
+    # (get_initial_state_and_commander may be called multiple times)
     llm = _MockLLM([[mock_llm_completion]], Path(cache_dir.name))
 
     # Test failure finder in conveyorbelt env
@@ -122,7 +136,16 @@ class SynthesizedCommander(Commander):
     object.__setattr__(scene_spec, "min_spacing", 0.1)
 
     env = ConveyorBeltEnv(scene_spec=scene_spec)
-    secret_mode_sequence = ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
+    secret_mode_sequence = [
+        "fast",
+        "mid",
+        "fast",
+        "slow",
+        "off",
+        "slow",
+        "slow",
+        "fast",
+    ]
     controller = ConveyorBeltController(
         seed=123,
         scene_spec=env.scene_spec,
@@ -132,19 +155,24 @@ class SynthesizedCommander(Commander):
     failure_finder = LLMCommanderFailureFinder(
         llm, seed=123, max_num_trajectories=1000, max_trajectory_length=200
     )
-    
+
     result = failure_finder.run(
         env, controller, failure_monitor, synthesize_initial_state=False
     )
-    
-    # Assert that a failure was found - the commander should generate the secret sequence
+
+    # Assert that a failure was found
+    # The commander should generate the secret sequence
     assert result is not None
 
     # Uncomment to visualize.
     # import imageio.v2 as iio
     # states = result.observations
     # imgs = [env._render_state(s) for s in states]
-    # path = Path("videos") / "test-llm-commander" / "conveyorbelt_llm_commander_test.mp4"
+    # path = (
+    #     Path("videos")
+    #     / "test-llm-commander"
+    #     / "conveyorbelt_llm_commander_test.mp4"
+    # )
     # path.parent.mkdir(parents=True, exist_ok=True)
     # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
@@ -157,7 +185,9 @@ def test_llm_initial_state_and_commander_failure_finder_conveyorbelt():
     
 ```python
 from hybrid_failure_discovery.commander.commander import Commander
-from hybrid_failure_discovery.commander.initial_state_commander import InitialStateCommander
+from hybrid_failure_discovery.commander.initial_state_commander import (
+    InitialStateCommander,
+)
 from hybrid_failure_discovery.controllers.conveyorbelt_controller import (
     ConveyorBeltCommand,
 )
@@ -173,8 +203,18 @@ class SynthesizedCommander(Commander):
         super().__init__(*args, **kwargs)
         self._current_state = None
         self._command_count = 0
-        # Secret failure sequence: ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
-        self._secret_sequence = ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
+        # Secret failure sequence:
+        # ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
+        self._secret_sequence = [
+            "fast",
+            "mid",
+            "fast",
+            "slow",
+            "off",
+            "slow",
+            "slow",
+            "fast",
+        ]
 
     def reset(self, initial_state):
         self._current_state = initial_state
@@ -225,7 +265,16 @@ class SynthesizedInitialStateCommander(InitialStateCommander):
     object.__setattr__(scene_spec, "min_spacing", 0.1)
 
     env = ConveyorBeltEnv(scene_spec=scene_spec)
-    secret_mode_sequence = ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
+    secret_mode_sequence = [
+        "fast",
+        "mid",
+        "fast",
+        "slow",
+        "off",
+        "slow",
+        "slow",
+        "fast",
+    ]
     controller = ConveyorBeltController(
         seed=123,
         scene_spec=env.scene_spec,
@@ -235,11 +284,11 @@ class SynthesizedInitialStateCommander(InitialStateCommander):
     failure_finder = LLMCommanderFailureFinder(
         llm, seed=123, max_num_trajectories=10, max_trajectory_length=200
     )
-    
+
     result = failure_finder.run(
         env, controller, failure_monitor, synthesize_initial_state=True
     )
-    
+
     # Assert that a failure was found
     assert result is not None
 
@@ -258,9 +307,10 @@ class SynthesizedInitialStateCommander(InitialStateCommander):
 
 @pytest.mark.skip(reason="Don't want to run actual LLM in CI.")
 def test_openai_llm_conveyorbelt_commander_failure_finder():
-    """Run an OpenAI LLM to create a failure finder commander for conveyorbelt."""
+    """Run an OpenAI LLM to create a failure finder commander for
+    conveyorbelt."""
 
-    from tomsutils.llm import OpenAILLM
+    from tomsutils.llm import OpenAILLM  # pylint: disable=import-outside-toplevel
 
     llm = OpenAILLM("gpt-4o", Path("./llm_cache"), max_tokens=4096)
 
@@ -274,7 +324,16 @@ def test_openai_llm_conveyorbelt_commander_failure_finder():
     object.__setattr__(scene_spec, "min_spacing", 0.1)
 
     env = ConveyorBeltEnv(scene_spec=scene_spec)
-    secret_mode_sequence = ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
+    secret_mode_sequence = [
+        "fast",
+        "mid",
+        "fast",
+        "slow",
+        "off",
+        "slow",
+        "slow",
+        "fast",
+    ]
     controller = ConveyorBeltController(
         seed=123,
         scene_spec=env.scene_spec,
@@ -284,11 +343,11 @@ def test_openai_llm_conveyorbelt_commander_failure_finder():
     failure_finder = LLMCommanderFailureFinder(
         llm, seed=123, max_num_trajectories=10, max_trajectory_length=200
     )
-    
+
     result = failure_finder.run(
         env, controller, failure_monitor, synthesize_initial_state=False
     )
-    
+
     # Note: This test may or may not find a failure depending on LLM output
     if result is not None:
         print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")
@@ -300,7 +359,11 @@ def test_openai_llm_conveyorbelt_commander_failure_finder():
     # if result is not None:
     #     states = result.observations
     #     imgs = [env._render_state(s) for s in states]
-    #     path = Path("videos") / "test-llm-commander" / "conveyorbelt_llm_commander_test.mp4"
+    #     path = (
+    #         Path("videos")
+    #         / "test-llm-commander"
+    #         / "conveyorbelt_llm_commander_test.mp4"
+    #     )
     #     path.parent.mkdir(parents=True, exist_ok=True)
     #     iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
@@ -310,7 +373,7 @@ def test_openai_llm_conveyorbelt_initial_state_and_commander_failure_finder():
     """Run an OpenAI LLM to create a failure finder commander for conveyorbelt,
     including initial state synthesis."""
 
-    from tomsutils.llm import OpenAILLM
+    from tomsutils.llm import OpenAILLM  # pylint: disable=import-outside-toplevel
 
     llm = OpenAILLM("gpt-4o", Path("./llm_cache"), max_tokens=4096)
 
@@ -324,7 +387,16 @@ def test_openai_llm_conveyorbelt_initial_state_and_commander_failure_finder():
     object.__setattr__(scene_spec, "min_spacing", 0.1)
 
     env = ConveyorBeltEnv(scene_spec=scene_spec)
-    secret_mode_sequence = ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
+    secret_mode_sequence = [
+        "fast",
+        "mid",
+        "fast",
+        "slow",
+        "off",
+        "slow",
+        "slow",
+        "fast",
+    ]
     controller = ConveyorBeltController(
         seed=123,
         scene_spec=env.scene_spec,
@@ -334,11 +406,11 @@ def test_openai_llm_conveyorbelt_initial_state_and_commander_failure_finder():
     failure_finder = LLMCommanderFailureFinder(
         llm, seed=123, max_num_trajectories=10, max_trajectory_length=200
     )
-    
+
     result = failure_finder.run(
         env, controller, failure_monitor, synthesize_initial_state=True
     )
-    
+
     # Note: This test may or may not find a failure depending on LLM output
     if result is not None:
         print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")

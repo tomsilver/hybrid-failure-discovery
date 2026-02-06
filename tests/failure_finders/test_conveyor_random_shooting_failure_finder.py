@@ -59,7 +59,16 @@ def test_random_shooting_failure_finder_conveyorbelt():
     object.__setattr__(scene_spec, "min_spacing", 0.1)
 
     env = ConveyorBeltEnv(scene_spec=scene_spec)
-    secret_mode_sequence = ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
+    secret_mode_sequence = [
+        "fast",
+        "mid",
+        "fast",
+        "slow",
+        "off",
+        "slow",
+        "slow",
+        "fast",
+    ]
     controller = ConveyorBeltController(
         seed=123,
         scene_spec=env.scene_spec,

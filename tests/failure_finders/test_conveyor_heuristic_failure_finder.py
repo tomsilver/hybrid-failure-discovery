@@ -31,31 +31,41 @@ def test_heuristic_failure_finder_conveyorbelt():
 
     def conveyorbelt_heuristic(traj):
         """Heuristic that encourages the secret failure mode sequence.
-        
-        The secret sequence is: ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
-        This heuristic scores trajectories based on how well they match this sequence.
-        
+
+        The secret sequence is:
+        ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
+        This heuristic scores trajectories based on how well they match
+        this sequence.
+
         Returns:
             float: Score between 0.0 (good for finding failures) and 1.0 (bad)
         """
         states = traj.observations
-        actions = traj.actions
-        
+
         if len(states) < 2:
             return 1.0  # Need at least 2 states to evaluate
-        
+
         # The secret failure sequence
-        secret_sequence = ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
-        
+        secret_sequence = [
+            "fast",
+            "mid",
+            "fast",
+            "slow",
+            "off",
+            "slow",
+            "slow",
+            "fast",
+        ]
+
         # Extract the mode sequence from the trajectory
         # We need to infer the commands from the states/actions
         # Since we don't have direct access to commands, we'll score based on
         # patterns that would lead to the secret sequence
-        
+
         # Score based on trajectory length - longer trajectories are more likely
         # to contain the full sequence
         length_score = 1.0 - min(1.0, len(states) / (len(secret_sequence) * 10))
-        
+
         # Score based on number of boxes - more boxes means more commands were issued
         # which increases chance of hitting the sequence
         if len(states) > 0:
@@ -65,7 +75,7 @@ def test_heuristic_failure_finder_conveyorbelt():
             box_score = 1.0 - min(1.0, num_boxes / 20.0)
         else:
             box_score = 1.0
-        
+
         # Encourage trajectories with many state changes (indicating many commands)
         state_changes = 0
         for i in range(len(states) - 1):
@@ -76,14 +86,17 @@ def test_heuristic_failure_finder_conveyorbelt():
                 state_changes += 1
             elif len(state1.positions) > 0 and len(state2.positions) > 0:
                 # Check if positions changed significantly
-                if not all(abs(p1 - p2) < 0.01 for p1, p2 in zip(state1.positions, state2.positions)):
+                if not all(
+                    abs(p1 - p2) < 0.01
+                    for p1, p2 in zip(state1.positions, state2.positions)
+                ):
                     state_changes += 1
-        
+
         change_score = 1.0 - min(1.0, state_changes / (len(secret_sequence) * 2))
-        
+
         # Combine scores - lower is better (closer to 0.0)
-        combined_score = (length_score * 0.4 + box_score * 0.3 + change_score * 0.3)
-        
+        combined_score = length_score * 0.4 + box_score * 0.3 + change_score * 0.3
+
         return combined_score
 
     # Test failure finder in conveyorbelt env
@@ -97,14 +110,23 @@ def test_heuristic_failure_finder_conveyorbelt():
     object.__setattr__(scene_spec, "min_spacing", 0.1)
 
     env = ConveyorBeltEnv(scene_spec=scene_spec)
-    secret_mode_sequence = ["fast", "mid", "fast", "slow", "off", "slow", "slow", "fast"]
+    secret_mode_sequence = [
+        "fast",
+        "mid",
+        "fast",
+        "slow",
+        "off",
+        "slow",
+        "slow",
+        "fast",
+    ]
     controller = ConveyorBeltController(
         seed=123,
         scene_spec=env.scene_spec,
         secret_failure_mode_sequence=secret_mode_sequence,
     )
     failure_monitor = ConveyorBeltFailureMonitor(env.scene_spec)
-    
+
     # Create heuristic failure finder with more aggressive parameters
     # Note: Since the heuristic uses RandomCommander, it can't directly control
     # the command sequence, so finding the exact secret sequence is probabilistic
@@ -117,12 +139,17 @@ def test_heuristic_failure_finder_conveyorbelt():
         boltzmann_temperature=30.0,  # Lower temperature = more focused on best particles
         seed=123,
     )
-    
-    print(f"Heuristic search: {failure_finder._num_particles} particles, {failure_finder._max_num_iters} iterations")
-    print("Note: Heuristic uses RandomCommander, so finding the exact secret sequence is probabilistic")
-    
+
+    num_particles = failure_finder._num_particles  # pylint: disable=protected-access
+    max_iters = failure_finder._max_num_iters  # pylint: disable=protected-access
+    print(f"Heuristic search: {num_particles} particles, {max_iters} iterations")
+    print(
+        "Note: Heuristic uses RandomCommander, so finding the exact "
+        "secret sequence is probabilistic"
+    )
+
     result = failure_finder.run(env, controller, failure_monitor)
-    
+
     # Check if a failure was found
     # Note: This test may or may not find a failure depending on randomness
     # The heuristic guides the search but can't guarantee finding the exact sequence
@@ -138,8 +165,11 @@ def test_heuristic_failure_finder_conveyorbelt():
         print("\n  Suggestions:")
         print("  - Try even more iterations (increase max_num_iters)")
         print("  - Try different seeds to explore different scenarios")
-        print("  - Consider that heuristic search may be less reliable than random shooting for exact sequences")
-    
+        print(
+            "  - Consider that heuristic search may be less reliable "
+            "than random shooting for exact sequences"
+        )
+
     # Note: This test may or may not find a failure depending on the system
     # If failures are expected, uncomment the assertion below
     # assert result is not None

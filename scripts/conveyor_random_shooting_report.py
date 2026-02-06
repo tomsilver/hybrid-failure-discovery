@@ -1,5 +1,4 @@
-"""
-Generate basic statistics and plots for the conveyor-belt random shooting
+"""Generate basic statistics and plots for the conveyor-belt random shooting
 failure finder.
 
 Outputs (under reports/conveyor_random_shooting/):
@@ -15,6 +14,7 @@ import csv
 import json
 import math
 import os
+import sys
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -22,20 +22,6 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
-
-ROOT = Path(__file__).resolve().parents[1]
-os.environ.setdefault("MPLCONFIGDIR", str(ROOT / "reports" / "mpl_cache"))
-import sys
-
-if str(ROOT / "src") not in sys.path:
-    sys.path.append(str(ROOT / "src"))
-
-try:
-    from tomsutils.utils import sample_seed_from_rng
-except ImportError:
-    # Lightweight fallback: sample a 32-bit seed from a Generator
-    def sample_seed_from_rng(rng: np.random.Generator) -> int:  # type: ignore
-        return int(rng.integers(0, 2**31 - 1))
 
 from hybrid_failure_discovery.commander.random_commander import RandomCommander
 from hybrid_failure_discovery.commander.random_initial_state_commander import (
@@ -49,14 +35,30 @@ from hybrid_failure_discovery.envs.conveyorbelt_env import (
     ConveyorBeltEnv,
     ConveyorBeltSceneSpec,
 )
-from hybrid_failure_discovery.structs import Trajectory
 from hybrid_failure_discovery.failure_monitors.conveyorbelt_failure_monitor import (
     ConveyorBeltFailureMonitor,
 )
+from hybrid_failure_discovery.structs import Trajectory
+
+ROOT = Path(__file__).resolve().parents[1]
+os.environ.setdefault("MPLCONFIGDIR", str(ROOT / "reports" / "mpl_cache"))
+
+if str(ROOT / "src") not in sys.path:
+    sys.path.append(str(ROOT / "src"))
+
+try:
+    from tomsutils.utils import sample_seed_from_rng
+except ImportError:
+    # Lightweight fallback: sample a 32-bit seed from a Generator
+    def sample_seed_from_rng(rng: np.random.Generator) -> int:  # type: ignore
+        """Sample a 32-bit seed from a random number generator."""
+        return int(rng.integers(0, 2**31 - 1))
 
 
 @dataclass
 class TrialResult:
+    """Results from a single trial of the random shooting failure finder."""
+
     seed: int
     max_num_trajectories: int
     max_trajectory_length: int
@@ -91,13 +93,14 @@ def simulate_single_trajectory(
     max_len: int,
     rng: np.random.Generator,
     initial_state: Any,
-) -> tuple[bool, Trajectory | None, int, float, float, int, Counter[str]]:
-    """
-    Run one trajectory from a provided initial state; return:
-    (failure_found, trajectory, steps, min_gap, boxes_max, command_counts)
+) -> tuple[bool, Trajectory | None, int, float, int, Counter[str]]:
+    """Run one trajectory from a provided initial state; return:
+
+    (failure_found, trajectory, steps, min_gap, boxes_max,
+    command_counts)
     """
     state = initial_state
-    trajectory = Trajectory([state], [], [])
+    trajectory: Trajectory[Any, Any, Any] = Trajectory([state], [], [])
 
     min_gap = compute_min_gap(state)
     boxes_max = len(state.positions)
@@ -105,7 +108,9 @@ def simulate_single_trajectory(
 
     for step in range(max_len):
         command = commander.get_command()
-        mode = command.mode if isinstance(command, ConveyorBeltCommand) else str(command)
+        mode = (
+            command.mode if isinstance(command, ConveyorBeltCommand) else str(command)
+        )
         command_counts[mode] += 1
 
         action = controller.step(state, command)
@@ -121,11 +126,25 @@ def simulate_single_trajectory(
         trajectory.observations.append(state)
 
         if monitor.step(command, action, state):
-            return True, trajectory, step + 1, min_gap, boxes_max, command_counts
+            return (
+                True,
+                trajectory,
+                step + 1,
+                min_gap,
+                boxes_max,
+                command_counts,
+            )
 
         commander.update(action, state)
 
-    return False, None, max_len, min_gap, boxes_max, command_counts
+    return (
+        False,
+        None,
+        max_len,
+        min_gap,
+        boxes_max,
+        command_counts,
+    )
 
 
 def run_trial(
@@ -167,25 +186,30 @@ def run_trial(
         initial_state = initializer.initialize()
 
         commander_seed = sample_seed_from_rng(rng)
-        commander = RandomCommander(command_space)
+        commander: RandomCommander = RandomCommander(command_space)
         commander.seed(commander_seed)
 
         # Set the initial state into env/controller/monitor
         controller.reset(initial_state)
         monitor.reset(initial_state)
         commander.reset(initial_state)
-        env._current_state = initial_state  # type: ignore[attr-defined]
+        env._current_state = initial_state  # type: ignore[attr-defined]  # pylint: disable=protected-access
 
-        failure_found, traj, steps, min_gap, boxes_max, command_counts = (
-            simulate_single_trajectory(
-                env,
-                controller,
-                monitor,
-                commander,
-                max_trajectory_length,
-                rng,
-                initial_state,
-            )
+        (
+            failure_found,
+            traj,
+            steps,
+            min_gap,
+            boxes_max,
+            command_counts,
+        ) = simulate_single_trajectory(
+            env,
+            controller,
+            monitor,
+            commander,
+            max_trajectory_length,
+            rng,
+            initial_state,
         )
         best_boxes_max = max(best_boxes_max, boxes_max)
 
@@ -198,7 +222,7 @@ def run_trial(
                 seed=seed,
                 max_num_trajectories=max_num_trajectories,
                 max_trajectory_length=max_trajectory_length,
-        secret_length=secret_length,
+                secret_length=secret_length,
                 found=True,
                 traj_index_found=traj_idx + 1,
                 steps_to_failure=steps,
@@ -233,6 +257,7 @@ def run_trial(
 
 
 def aggregate_and_plot(results: list[TrialResult], out_dir: Path) -> None:
+    """Aggregate trial results and generate plots and summary statistics."""
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Write CSV
@@ -302,8 +327,8 @@ def aggregate_and_plot(results: list[TrialResult], out_dir: Path) -> None:
     plt.figure(figsize=(6, 4))
     im = plt.imshow(heat, origin="lower", cmap="viridis", vmin=0, vmax=1)
     plt.colorbar(im, label="Success rate")
-    plt.xticks(range(len(lengths)), lengths)
-    plt.yticks(range(len(counts)), counts)
+    plt.xticks(range(len(lengths)), [str(x) for x in lengths])
+    plt.yticks(range(len(counts)), [str(x) for x in counts])
     plt.xlabel("max_trajectory_length")
     plt.ylabel("max_num_trajectories")
     plt.title("Conveyor Random Shooting: Success Rate")
@@ -460,7 +485,7 @@ def aggregate_and_plot(results: list[TrialResult], out_dir: Path) -> None:
     def average_cmd_usage(cmd_list: list[Counter[str]]) -> dict[str, float]:
         if not cmd_list:
             return {"off": 0.0, "slow": 0.0, "mid": 0.0, "fast": 0.0}
-        total = Counter()
+        total: Counter[str] = Counter()
         for c in cmd_list:
             total.update(c)
         n = sum(total.values()) or 1
@@ -468,16 +493,16 @@ def aggregate_and_plot(results: list[TrialResult], out_dir: Path) -> None:
 
     avg_found = average_cmd_usage(cmd_usage_found)
     avg_not_found = average_cmd_usage(cmd_usage_not_found)
-    labels = ["off", "slow", "mid", "fast"]
-    found_vals = [avg_found[k] for k in labels]
-    not_vals = [avg_not_found[k] for k in labels]
+    cmd_labels: list[str] = ["off", "slow", "mid", "fast"]
+    found_vals = [avg_found[k] for k in cmd_labels]
+    not_vals = [avg_not_found[k] for k in cmd_labels]
 
-    x = np.arange(len(labels))
+    x = np.arange(len(cmd_labels))
     width = 0.35
     plt.figure(figsize=(6, 4))
     plt.bar(x - width / 2, found_vals, width, label="Found")
     plt.bar(x + width / 2, not_vals, width, label="Not found")
-    plt.xticks(x, labels)
+    plt.xticks(x, cmd_labels)
     plt.ylabel("Average command frequency")
     plt.title("Command Mix vs Outcome")
     plt.legend()
@@ -497,18 +522,25 @@ def aggregate_and_plot(results: list[TrialResult], out_dir: Path) -> None:
         "success_vs_secret_length": {
             str(k): float(np.mean(v)) for k, v in success_vs_secret.items()
         },
-        "traj_index_mean_if_found": float(np.mean(traj_indices)) if traj_indices else None,
-        "steps_to_failure_mean_if_found": float(np.mean(steps_list)) if steps_list else None,
-        "min_gap_at_failure_mean": float(np.mean(finite_min_gap))
-        if finite_min_gap
-        else None,
-        "boxes_max_seen_mean": float(np.mean(boxes_max_list)) if boxes_max_list else None,
+        "traj_index_mean_if_found": (
+            float(np.mean(traj_indices)) if traj_indices else None
+        ),
+        "steps_to_failure_mean_if_found": (
+            float(np.mean(steps_list)) if steps_list else None
+        ),
+        "min_gap_at_failure_mean": (
+            float(np.mean(finite_min_gap)) if finite_min_gap else None
+        ),
+        "boxes_max_seen_mean": (
+            float(np.mean(boxes_max_list)) if boxes_max_list else None
+        ),
     }
     with (out_dir / "summary.json").open("w") as f:
         json.dump(summary, f, indent=2)
 
 
 def main() -> None:
+    """Run the conveyor random shooting report generation."""
     out_dir = Path("reports") / "conveyor_random_shooting"
     # Expanded grid over max_num_trajectories, lengths, and secret lengths; seeds trimmed
     max_traj_options = [20, 50, 100, 150, 300]
@@ -535,4 +567,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

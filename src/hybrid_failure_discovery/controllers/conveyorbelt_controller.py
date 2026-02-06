@@ -76,17 +76,19 @@ class ConveyorBeltController(
     def _safe_to_drop(self, state: ConveyorBeltState) -> bool:
         """Return True ONLY if dropping a new box will not collide.
 
-        NOTE: This method has deliberate faults to allow testing of failure detection:
-        1. Only checks if falling height > 0.5 (allows drops when boxes are almost landed)
-        2. NO spacing check - relies entirely on timing to allow collisions for testing
+        NOTE: This method has deliberate faults to allow testing of
+        failure detection:
+        1. Only checks if falling height > 0.5 (allows drops when boxes
+           are almost landed)
+        2. NO spacing check - relies entirely on timing to allow
+           collisions for testing
         """
 
-        # FAULT: Only prevent drops when boxes are falling HIGH (> 0.5) instead of > 0.0
+        # FAULT: Only prevent drops when boxes are falling HIGH (> 0.5)
+        # instead of > 0.0
         for h in state.falling_heights:
-            if h > 0.5:  
+            if h > 0.5:
                 return False
-
-    
 
         return True
 

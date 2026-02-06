@@ -1,7 +1,5 @@
 """Collision/spacing failure monitor for the conveyor belt environment."""
 
-import numpy as np
-
 from hybrid_failure_discovery.controllers.conveyorbelt_controller import (
     ConveyorBeltCommand,
 )
@@ -31,13 +29,10 @@ class ConveyorBeltFailureMonitor(
         self._scene_spec = scene_spec
 
     def _check_failures(self, state: ConveyorBeltState) -> bool:
-        """Return True if the world has exploded. """
-    
+        """Return True if the world has exploded."""
+
         # Check if world has exploded
-        if state.exploded:
-            return True
-        
-    
+        return state.exploded
 
     def get_robustness_score(self, state: ConveyorBeltState) -> float:
         raise NotImplementedError

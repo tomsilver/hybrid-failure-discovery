@@ -24,10 +24,15 @@ from hybrid_failure_discovery.failure_monitors.blocks_failure_monitor import (
 
 # Import exception for handling empty task plan
 try:
-    from task_then_motion_planning.planning import TaskThenMotionPlanningFailure
+    from task_then_motion_planning.planning import (
+        TaskThenMotionPlanningFailure,
+    )
 except ImportError:
     # If not available, define a dummy exception class
-    TaskThenMotionPlanningFailure = Exception
+
+    class TaskThenMotionPlanningFailure(Exception):  # type: ignore[no-redef]
+        """Dummy exception class for when task_then_motion_planning is not
+        available."""
 
 
 def test_random_shooting_failure_finder_blocks():
@@ -35,36 +40,46 @@ def test_random_shooting_failure_finder_blocks():
 
     With sufficient trajectories, should find a failure if one exists.
 
-    This test uses higher sampling to ensure that failures can be reliably
-    found if they exist in the system. The test may or may not find a failure
-    depending on the controller and environment configuration.
+    This test uses higher sampling to ensure that failures can be
+    reliably found if they exist in the system. The test may or may not
+    find a failure depending on the controller and environment
+    configuration.
     """
 
     # Test failure finder in blocks env
     # Use more blocks to increase failure opportunities
+    # pylint: disable=import-outside-toplevel
     from hybrid_failure_discovery.envs.blocks_env import BlocksEnvSceneSpec
-    
+
     # Create scene spec with more blocks for more failure opportunities
     # Using 8 blocks - more than default but not so many that planning becomes too slow
     scene_spec = BlocksEnvSceneSpec(num_blocks=8)  # Increased from default 6
     env = BlocksEnv(scene_spec=scene_spec, seed=123, use_gui=False)
-    
-    # Use lower safe_height to make controller less careful (more likely to cause collisions)
+
+    # Use lower safe_height to make controller less careful
+    # (more likely to cause collisions)
     controller = BlocksController(seed=123, scene_spec=env.scene_spec, safe_height=0.15)
-    
+
     # Use very sensitive tolerance to catch even tiny movements
-    failure_monitor = BlocksFailureMonitor(move_tol=0.01)  # Very sensitive - catch small movements
-    
+    failure_monitor = BlocksFailureMonitor(
+        move_tol=0.01
+    )  # Very sensitive - catch small movements
+
     # Balanced trajectory count and length - aggressive but not so slow
     failure_finder = RandomShootingFailureFinder(
         seed=123, max_num_trajectories=2000, max_trajectory_length=300
     )
-    
+
     # Try multiple seeds to explore more scenarios
-    print(f"Testing with {scene_spec.num_blocks} blocks, safe_height={0.15}, move_tol={0.01}")
-    print(f"Searching up to {failure_finder._max_num_trajectories} trajectories (max length {failure_finder._max_trajectory_length})...")
+    print(
+        f"Testing with {scene_spec.num_blocks} blocks, "
+        f"safe_height={0.15}, move_tol={0.01}"
+    )
+    max_traj = failure_finder._max_num_trajectories  # pylint: disable=protected-access
+    max_len = failure_finder._max_trajectory_length  # pylint: disable=protected-access
+    print(f"Searching up to {max_traj} trajectories (max length {max_len})...")
     print("This may take a while - planning with many blocks can be slow...")
-    
+
     # Run the failure finder, handling empty task plan exceptions
     # Empty task plan means the command was successfully completed (no failure)
     try:
@@ -83,7 +98,7 @@ def test_random_shooting_failure_finder_blocks():
     # (e.g., due to collisions, robot hitting blocks, physics issues)
     if result is not None:
         print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")
-        print(f"  Failure occurred when a non-held block moved unexpectedly")
+        print("  Failure occurred when a non-held block moved unexpectedly")
     else:
         print("✗ No failure found after all trajectories")
         print("  This could mean:")
@@ -106,9 +121,7 @@ def test_random_shooting_failure_finder_blocks():
         # pylint: disable=protected-access
         imgs = [env._render_state(s) for s in states]
         path = (
-            Path("videos")
-            / "test-random-shooting"
-            / "blocks_random_shooting_test.mp4"
+            Path("videos") / "test-random-shooting" / "blocks_random_shooting_test.mp4"
         )
         path.parent.mkdir(parents=True, exist_ok=True)
         iio.mimsave(path, imgs, fps=env.metadata["render_fps"])

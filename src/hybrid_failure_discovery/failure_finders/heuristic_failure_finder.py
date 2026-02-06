@@ -81,12 +81,19 @@ class HeuristicFailureFinder(FailureFinder):
                     )
                     # Check if this trajectory is a failure and return if so.
                     if failure_found:
-                        total_attempts = (itr * self._num_particles * self._num_extension_attempts) + \
-                                        (particle_idx * self._num_extension_attempts) + extension_idx + 1
-                        print(f"Found a failure after {itr+1} iterations "
-                              f"(particle {particle_idx+1}/{self._num_particles}, "
-                              f"extension {extension_idx+1}/{self._num_extension_attempts}, "
-                              f"total attempts: ~{total_attempts})")
+                        total_attempts = (
+                            (itr * self._num_particles * self._num_extension_attempts)
+                            + (particle_idx * self._num_extension_attempts)
+                            + extension_idx
+                            + 1
+                        )
+                        print(
+                            f"Found a failure after {itr+1} iterations "
+                            f"(particle {particle_idx+1}/{self._num_particles}, "
+                            f"extension {extension_idx+1}/"
+                            f"{self._num_extension_attempts}, "
+                            f"total attempts: ~{total_attempts})"
+                        )
                         return new_candidate
                     # If the new_candidate is of max length, start over.
                     if len(new_candidate.actions) >= self._max_trajectory_length:

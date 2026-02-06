@@ -8,7 +8,7 @@ import pytest
 from tomsutils.llm import LargeLanguageModel
 
 from hybrid_failure_discovery.controllers.blocks_controller import BlocksController
-from hybrid_failure_discovery.envs.blocks_env import BlocksEnv, BlocksEnvSceneSpec
+from hybrid_failure_discovery.envs.blocks_env import BlocksEnv
 from hybrid_failure_discovery.failure_finders.llm_commander_failure_finder import (
     LLMCommanderFailureFinder,
 )
@@ -18,10 +18,15 @@ from hybrid_failure_discovery.failure_monitors.blocks_failure_monitor import (
 
 # Import exception for handling empty task plan
 try:
-    from task_then_motion_planning.planning import TaskThenMotionPlanningFailure
+    from task_then_motion_planning.planning import (
+        TaskThenMotionPlanningFailure,
+    )
 except ImportError:
     # If not available, define a dummy exception class
-    TaskThenMotionPlanningFailure = Exception
+
+    class TaskThenMotionPlanningFailure(Exception):  # type: ignore[no-redef]
+        """Dummy exception class for when task_then_motion_planning is not
+        available."""
 
 
 class _MockLLM(LargeLanguageModel):
@@ -41,12 +46,16 @@ class _MockLLM(LargeLanguageModel):
 
     def _sample_completions(self, prompt, imgs, temperature, seed, num_completions=1):
         del imgs  # unused
-        # Reuse the last completion if we run out (for cases where synthesis is called multiple times)
+        # Reuse the last completion if we run out
+        # (for cases where synthesis is called multiple times)
         if len(self.completions) == 0:
             # If we've exhausted all completions, reuse the last one we had
-            # This handles cases where get_initial_state_and_commander is called multiple times
+            # This handles cases where get_initial_state_and_commander
+            # is called multiple times
             if self._last_completions is None:
-                raise IndexError("No completions available and no previous completion to reuse")
+                raise IndexError(
+                    "No completions available and no previous completion to reuse"
+                )
             next_completions = self._last_completions
         else:
             next_completions = self.completions.pop(0)
@@ -135,11 +144,12 @@ class SynthesizedCommander(Commander):
 
     env = BlocksEnv(seed=123, use_gui=False)
     controller = BlocksController(seed=123, scene_spec=env.scene_spec)
-    failure_monitor = BlocksFailureMonitor(move_tol=0.01)  # Sensitive to catch failures
+    # Sensitive to catch failures
+    failure_monitor = BlocksFailureMonitor(move_tol=0.01)
     failure_finder = LLMCommanderFailureFinder(
         llm, seed=123, max_num_trajectories=10, max_trajectory_length=200
     )
-    
+
     # Run the failure finder, handling empty task plan exceptions
     try:
         result = failure_finder.run(
@@ -153,11 +163,14 @@ class SynthesizedCommander(Commander):
         else:
             # Re-raise if it's a different planning failure
             raise
-    
+
     # Note: This test may or may not find a failure depending on the system
-    # The mock commander is designed to create complex configurations that might cause failures
+    # The mock commander is designed to create complex configurations
+    # that might cause failures
     if result is not None:
-        print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")
+        print(
+            f"✓ Failure found! " f"Trajectory length: {len(result.observations)} steps"
+        )
     else:
         print("✗ No failure found - this is acceptable for this test")
 
@@ -251,11 +264,12 @@ class SynthesizedInitialStateCommander(InitialStateCommander):
 
     env = BlocksEnv(seed=123, use_gui=False)
     controller = BlocksController(seed=123, scene_spec=env.scene_spec)
-    failure_monitor = BlocksFailureMonitor(move_tol=0.01)  # Sensitive to catch failures
+    # Sensitive to catch failures
+    failure_monitor = BlocksFailureMonitor(move_tol=0.01)
     failure_finder = LLMCommanderFailureFinder(
         llm, seed=123, max_num_trajectories=10, max_trajectory_length=200
     )
-    
+
     # Run the failure finder, handling empty task plan exceptions
     try:
         result = failure_finder.run(
@@ -269,7 +283,7 @@ class SynthesizedInitialStateCommander(InitialStateCommander):
         else:
             # Re-raise if it's a different planning failure
             raise
-    
+
     # Note: This test may or may not find a failure depending on the system
     if result is not None:
         print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")
@@ -296,7 +310,7 @@ class SynthesizedInitialStateCommander(InitialStateCommander):
 def test_openai_llm_blocks_commander_failure_finder():
     """Run an OpenAI LLM to create a failure finder commander for blocks."""
 
-    from tomsutils.llm import OpenAILLM
+    from tomsutils.llm import OpenAILLM  # pylint: disable=import-outside-toplevel
 
     llm = OpenAILLM("gpt-4o", Path("./llm_cache"), max_tokens=4096)
 
@@ -306,7 +320,7 @@ def test_openai_llm_blocks_commander_failure_finder():
     failure_finder = LLMCommanderFailureFinder(
         llm, seed=123, max_num_trajectories=10, max_trajectory_length=200
     )
-    
+
     # Run the failure finder, handling empty task plan exceptions
     try:
         result = failure_finder.run(
@@ -317,7 +331,7 @@ def test_openai_llm_blocks_commander_failure_finder():
             result = None
         else:
             raise
-    
+
     # Note: This test may or may not find a failure
     if result is not None:
         print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")
@@ -341,7 +355,7 @@ def test_openai_llm_blocks_initial_state_and_commander_failure_finder():
     """Run an OpenAI LLM to create a failure finder commander for blocks,
     including initial state synthesis."""
 
-    from tomsutils.llm import OpenAILLM
+    from tomsutils.llm import OpenAILLM  # pylint: disable=import-outside-toplevel
 
     llm = OpenAILLM("gpt-4o", Path("./llm_cache"), max_tokens=4096)
 
@@ -351,7 +365,7 @@ def test_openai_llm_blocks_initial_state_and_commander_failure_finder():
     failure_finder = LLMCommanderFailureFinder(
         llm, seed=123, max_num_trajectories=10, max_trajectory_length=200
     )
-    
+
     # Run the failure finder, handling empty task plan exceptions
     try:
         result = failure_finder.run(
@@ -362,7 +376,7 @@ def test_openai_llm_blocks_initial_state_and_commander_failure_finder():
             result = None
         else:
             raise
-    
+
     # Note: This test may or may not find a failure
     if result is not None:
         print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")
