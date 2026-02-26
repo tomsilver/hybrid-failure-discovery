@@ -71,17 +71,29 @@ class HeuristicFailureFinder(FailureFinder):
         for itr in range(self._max_num_iters):
             # Sample new candidate particles.
             new_candidates: list[Trajectory] = []
-            for _ in range(self._num_particles):
+            for particle_idx in range(self._num_particles):
                 # Sample an existing particle to extend.
                 particle = particles[self._rng.choice(len(particles))]
                 # Extend the particle in various ways.
-                for _ in range(self._num_extension_attempts):
+                for extension_idx in range(self._num_extension_attempts):
                     new_candidate, failure_found = self._sample_trajectory_extension(
                         particle, env, commander, controller, failure_monitor
                     )
                     # Check if this trajectory is a failure and return if so.
                     if failure_found:
-                        print(f"Found a failure after {itr+1} iterations")
+                        total_attempts = (
+                            (itr * self._num_particles * self._num_extension_attempts)
+                            + (particle_idx * self._num_extension_attempts)
+                            + extension_idx
+                            + 1
+                        )
+                        print(
+                            f"Found a failure after {itr+1} iterations "
+                            f"(particle {particle_idx+1}/{self._num_particles}, "
+                            f"extension {extension_idx+1}/"
+                            f"{self._num_extension_attempts}, "
+                            f"total attempts: ~{total_attempts})"
+                        )
                         return new_candidate
                     # If the new_candidate is of max length, start over.
                     if len(new_candidate.actions) >= self._max_trajectory_length:

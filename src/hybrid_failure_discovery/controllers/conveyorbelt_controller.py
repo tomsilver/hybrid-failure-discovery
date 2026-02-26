@@ -24,7 +24,7 @@ class ConveyorBeltCommand:
       - off  : never drop
       - slow : drop every ~2.0 seconds
       - mid  : drop every ~1.2 seconds
-      - fast : drop every ~0.7 seconds
+      - fast : drop every ~0.04 seconds
     """
 
     mode: str = "off"  # one of {"off", "slow", "mid", "fast"}
@@ -76,29 +76,18 @@ class ConveyorBeltController(
     def _safe_to_drop(self, state: ConveyorBeltState) -> bool:
         """Return True ONLY if dropping a new box will not collide.
 
-        NOTE: This method has deliberate faults to allow testing of failure detection:
-        1. Only checks min_spacing, ignoring box_width (allows overlaps)
-        2. Only checks if falling height > 0.05
+        NOTE: This method has deliberate faults to allow testing of
+        failure detection:
+        1. Only checks if falling height > 0.5 (allows drops when boxes
+           are almost landed)
+        2. NO spacing check - relies entirely on timing to allow
+           collisions for testing
         """
 
-        min_spacing = getattr(self._scene_spec, "min_spacing", 0.0)
-
-        # FAULT 1: Only check if falling height is significant (> 0.05) instead of > 0.0
-        # This allows drops when boxes are almost landed (height 0.0-0.05),
-        # Made less severe (0.05 instead of 0.1) to make failures moderately rare
+        # FAULT: Only prevent drops when boxes are falling HIGH (> 0.5)
+        # instead of > 0.0
         for h in state.falling_heights:
-            if h > 0.05:  # Should be > 0.0
-                return False
-
-        # FAULT 2: Only check min_spacing, ignoring box_width
-        # This means boxes can overlap (collide) if they satisfy min_spacing
-        # FAULT 3: Use reduced safety margin (80% of required gap)
-        # This makes the check less strict, allowing drops when slightly too close
-        if len(state.positions) > 0:
-            nearest = min(state.positions)
-            # Should check: nearest < (box_width + min_spacing)
-            # But we only check min_spacing with 80% margin
-            if nearest < min_spacing * 0.8:  # Should be: < (box_width + min_spacing)
+            if h > 0.5:
                 return False
 
         return True

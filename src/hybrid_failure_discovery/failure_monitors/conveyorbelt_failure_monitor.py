@@ -21,8 +21,7 @@ class ConveyorBeltFailureMonitor(
     """Monitors for collisions or spacing violations on the conveyor belt.
 
     Failure occurs if:
-    - Two boxes overlap in their x positions (Δx < box_width)
-    - Boxes are too close together (Δx < min_spacing)
+    - The world has exploded (state.exploded)
     """
 
     def __init__(self, scene_spec: ConveyorBeltSceneSpec) -> None:
@@ -30,7 +29,9 @@ class ConveyorBeltFailureMonitor(
         self._scene_spec = scene_spec
 
     def _check_failures(self, state: ConveyorBeltState) -> bool:
-        """Return True if the world has exploded.."""
+        """Return True if the world has exploded."""
+
+        # Check if world has exploded
         return state.exploded
 
     def get_robustness_score(self, state: ConveyorBeltState) -> float:
