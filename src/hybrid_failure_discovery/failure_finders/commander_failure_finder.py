@@ -35,6 +35,13 @@ class CommanderFailureFinder(FailureFinder):
         self._max_trajectory_length = max_trajectory_length
         self._seed = seed
         self._rng = np.random.default_rng(seed)
+        self._last_trajectory: Trajectory | None = None
+
+    @property
+    def last_trajectory(self) -> Trajectory | None:
+        """The last fully-run trajectory, regardless of whether it was a
+        failure."""
+        return self._last_trajectory
 
     @abc.abstractmethod
     def get_commander(
@@ -88,7 +95,10 @@ class CommanderFailureFinder(FailureFinder):
                 failure_monitor,
                 _termination_fn,
                 self._rng,
+                catch_task_planning_failure=True,
             )
+
+            self._last_trajectory = failure_traj
 
             # Failure found, we're done!
             if failure_found:

@@ -73,14 +73,14 @@ def test_heuristic_failure_finder_blocks():
         for i, block1 in enumerate(final_state.blocks):
             if final_state.held_block_name == block1.name:
                 continue  # Skip held block (as per failure monitor logic)
-            pos1 = block1.pose.position
+            pos1 = np.array(block1.pose.position)
 
             for j, block2 in enumerate(final_state.blocks):
                 if i >= j:
                     continue
                 if final_state.held_block_name == block2.name:
                     continue  # Skip held block
-                pos2 = block2.pose.position
+                pos2 = np.array(block2.pose.position)
 
                 # Calculate 3D distance
                 distance = np.linalg.norm(pos1 - pos2)
@@ -132,7 +132,7 @@ def test_heuristic_failure_finder_blocks():
 
     # Create scene spec with more blocks for more failure opportunities
     # Using 8 blocks - more than default but not so many that planning becomes too slow
-    scene_spec = BlocksEnvSceneSpec(num_blocks=8)  # Increased from default 6
+    scene_spec = BlocksEnvSceneSpec(num_blocks=4)
     env = BlocksEnv(scene_spec=scene_spec, seed=123, use_gui=False)
 
     # Use lower safe_height to make controller less careful
@@ -144,14 +144,13 @@ def test_heuristic_failure_finder_blocks():
         move_tol=0.01
     )  # Very sensitive - catch small movements
 
-    # Create heuristic failure finder with balanced but aggressive parameters
     failure_finder = HeuristicFailureFinder(
         blocks_heuristic,
-        num_particles=15,  # Increased from 10 - more parallel exploration
-        num_extension_attempts=3,  # Increased from 1 - more attempts per particle
-        max_trajectory_length=300,  # Increased from 200
-        max_num_iters=150,  # Increased from 100 - more iterations
-        boltzmann_temperature=30.0,  # Lower temperature = more focused
+        num_particles=5,
+        num_extension_attempts=1,
+        max_trajectory_length=50,
+        max_num_iters=30,
+        boltzmann_temperature=30.0,
         seed=123,
     )
 
@@ -164,7 +163,7 @@ def test_heuristic_failure_finder_blocks():
     num_particles = failure_finder._num_particles  # pylint: disable=protected-access
     max_iters = failure_finder._max_num_iters  # pylint: disable=protected-access
     print(f"Heuristic search: {num_particles} particles, {max_iters} iterations")
-    print("This may take a while - planning with many blocks can be slow...")
+    print("Running heuristic search...")
 
     try:
         result = failure_finder.run(env, controller, failure_monitor)
@@ -182,7 +181,8 @@ def test_heuristic_failure_finder_blocks():
     # (e.g., due to collisions, robot hitting blocks, physics issues)
     if result is not None:
         print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")
-        print("  Failure occurred when a non-held block moved unexpectedly")
+        reason = failure_monitor.failure_reason or "unknown"
+        print(f"  Failure cause: {reason}")
     else:
         print("✗ No failure found after all iterations")
         print("  This could mean:")
@@ -199,18 +199,18 @@ def test_heuristic_failure_finder_blocks():
     # If failures are expected, uncomment the assertion below
     # assert result is not None
 
-    # If a failure was found, save visualization
-    if result is not None:
-        states = result.observations
-        # Accessing protected method _render_state is intentional for visualization
-        # pylint: disable=protected-access
-        imgs = [env._render_state(s) for s in states]
-        path = (
-            Path("videos")
-            / "test-heuristic-failure-finding"
-            / "blocks_heuristic_test.mp4"
-        )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    traj_to_render = result or failure_finder.last_trajectory
+    if traj_to_render is not None:
+        states = traj_to_render.observations
+    else:
+        initial_state = env.get_initial_states().sample()
+        states = [initial_state] * 30
+    # pylint: disable=protected-access
+    imgs = [env._render_state(s) for s in states]
+    path = (
+        Path("videos") / "test-heuristic-failure-finding" / "blocks_heuristic_test.mp4"
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
     env.close()

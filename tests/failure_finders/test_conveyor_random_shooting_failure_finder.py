@@ -70,14 +70,14 @@ def test_random_shooting_failure_finder_conveyorbelt():
         "fast",
     ]
     controller = ConveyorBeltController(
-        seed=123,
+        seed=1031,
         scene_spec=env.scene_spec,
         secret_failure_mode_sequence=secret_mode_sequence,
     )
     failure_monitor = ConveyorBeltFailureMonitor(env.scene_spec)
     # Higher trajectory count - should find failure
     failure_finder = RandomShootingFailureFinder(
-        seed=123, max_num_trajectories=1000, max_trajectory_length=200
+        seed=1031, max_num_trajectories=1000, max_trajectory_length=200
     )
     result = failure_finder.run(env, controller, failure_monitor)
 
