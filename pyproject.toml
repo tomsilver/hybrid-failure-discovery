@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hybrid_failure_discovery"
 version = "0.1.0"
-description = "A basic starter for Python packages."
+description = "A  basic starter for Python packages."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -16,7 +16,7 @@ dependencies = [
    "moviepy",
    "tomsutils@git+https://github.com/tomsilver/toms-utils.git",
    "tomsgeoms2d@git+https://github.com/tomsilver/toms-geoms-2d.git",
-   "pybullet_helpers@git+https://github.com/tomsilver/pybullet-helpers.git",
+   "pybullet_helpers@git+https://github.com/Princeton-Robot-Planning-and-Learning/prpl-mono.git#subdirectory=pybullet-helpers",
    "task_then_motion_planning@git+https://github.com/tomsilver/task-then-motion-planning.git",
 ]
 

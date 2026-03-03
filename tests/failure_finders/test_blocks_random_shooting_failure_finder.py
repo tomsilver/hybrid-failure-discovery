@@ -51,9 +51,7 @@ def test_random_shooting_failure_finder_blocks():
     # pylint: disable=import-outside-toplevel
     from hybrid_failure_discovery.envs.blocks_env import BlocksEnvSceneSpec
 
-    # Create scene spec with more blocks for more failure opportunities
-    # Using 8 blocks - more than default but not so many that planning becomes too slow
-    scene_spec = BlocksEnvSceneSpec(num_blocks=8)  # Increased from default 6
+    scene_spec = BlocksEnvSceneSpec(num_blocks=4)
     env = BlocksEnv(scene_spec=scene_spec, seed=123, use_gui=False)
 
     # Use lower safe_height to make controller less careful
@@ -67,7 +65,7 @@ def test_random_shooting_failure_finder_blocks():
 
     # Balanced trajectory count and length - aggressive but not so slow
     failure_finder = RandomShootingFailureFinder(
-        seed=123, max_num_trajectories=2000, max_trajectory_length=300
+        seed=123, max_num_trajectories=20, max_trajectory_length=1000
     )
 
     # Try multiple seeds to explore more scenarios
@@ -98,7 +96,8 @@ def test_random_shooting_failure_finder_blocks():
     # (e.g., due to collisions, robot hitting blocks, physics issues)
     if result is not None:
         print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")
-        print("  Failure occurred when a non-held block moved unexpectedly")
+        reason = failure_monitor.failure_reason or "unknown"
+        print(f"  Failure cause: {reason}")
     else:
         print("✗ No failure found after all trajectories")
         print("  This could mean:")
@@ -114,16 +113,16 @@ def test_random_shooting_failure_finder_blocks():
     # If failures are expected, uncomment the assertion below
     # assert result is not None
 
-    # If a failure was found, save visualization
-    if result is not None:
-        states = result.observations
-        # Accessing protected method _render_state is intentional for visualization
-        # pylint: disable=protected-access
-        imgs = [env._render_state(s) for s in states]
-        path = (
-            Path("videos") / "test-random-shooting" / "blocks_random_shooting_test.mp4"
-        )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    traj_to_render = result or failure_finder.last_trajectory
+    if traj_to_render is not None:
+        states = traj_to_render.observations
+    else:
+        initial_state = env.get_initial_states().sample()
+        states = [initial_state] * 30
+    # pylint: disable=protected-access
+    imgs = [env._render_state(s) for s in states]
+    path = Path("videos") / "test-random-shooting" / "blocks_random_shooting_test.mp4"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
     env.close()

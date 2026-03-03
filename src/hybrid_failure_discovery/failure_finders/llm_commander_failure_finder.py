@@ -423,7 +423,10 @@ Your classes should be called SynthesizedInitialStateCommander() and Synthesized
                 failure_monitor,
                 _termination_fn,
                 self._rng,
+                catch_task_planning_failure=True,
             )
+
+            self._last_trajectory = failure_traj
 
             # Failure found, we're done!
             if failure_found:

@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+import imageio.v2 as iio
 import pytest
 from tomsutils.llm import LargeLanguageModel
 
@@ -15,18 +16,6 @@ from hybrid_failure_discovery.failure_finders.llm_commander_failure_finder impor
 from hybrid_failure_discovery.failure_monitors.blocks_failure_monitor import (
     BlocksFailureMonitor,
 )
-
-# Import exception for handling empty task plan
-try:
-    from task_then_motion_planning.planning import (
-        TaskThenMotionPlanningFailure,
-    )
-except ImportError:
-    # If not available, define a dummy exception class
-
-    class TaskThenMotionPlanningFailure(Exception):  # type: ignore[no-redef]
-        """Dummy exception class for when task_then_motion_planning is not
-        available."""
 
 
 class _MockLLM(LargeLanguageModel):
@@ -147,41 +136,33 @@ class SynthesizedCommander(Commander):
     # Sensitive to catch failures
     failure_monitor = BlocksFailureMonitor(move_tol=0.01)
     failure_finder = LLMCommanderFailureFinder(
-        llm, seed=123, max_num_trajectories=10, max_trajectory_length=200
+        llm, seed=123, max_num_trajectories=50, max_trajectory_length=10000
     )
 
     # Run the failure finder, handling empty task plan exceptions
-    try:
-        result = failure_finder.run(
-            env, controller, failure_monitor, synthesize_initial_state=False
-        )
-    except TaskThenMotionPlanningFailure as e:
-        # If the planner has no task plan (empty plan), this means the command
-        # was successfully completed. No failure found - treat as no failure.
-        if "empty" in str(e).lower() or "task plan" in str(e).lower():
-            result = None  # No failure found - command completed successfully
-        else:
-            # Re-raise if it's a different planning failure
-            raise
+    # try:
+    result = failure_finder.run(
+        env, controller, failure_monitor, synthesize_initial_state=False
+    )
 
-    # Note: This test may or may not find a failure depending on the system
-    # The mock commander is designed to create complex configurations
-    # that might cause failures
     if result is not None:
-        print(
-            f"✓ Failure found! " f"Trajectory length: {len(result.observations)} steps"
-        )
+        print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")
+        reason = failure_monitor.failure_reason or "unknown"
+        print(f"  Failure cause: {reason}")
     else:
         print("✗ No failure found - this is acceptable for this test")
 
-    # Uncomment to visualize if a failure was found.
-    # if result is not None:
-    #     import imageio.v2 as iio
-    #     states = result.observations
-    #     imgs = [env._render_state(s) for s in states]
-    #     path = Path("videos") / "test-llm-commander" / "blocks_llm_commander_test.mp4"
-    #     path.parent.mkdir(parents=True, exist_ok=True)
-    #     iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    traj_to_render = result or failure_finder.last_trajectory
+    if traj_to_render is not None:
+        states = traj_to_render.observations
+    else:
+        initial_state = env.get_initial_states().sample()
+        states = [initial_state] * 30
+    # pylint: disable=protected-access
+    imgs = [env._render_state(s) for s in states]
+    path = Path("videos") / "test-llm-commander" / "blocks_llm_commander_test.mp4"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
     env.close()
 
@@ -267,41 +248,38 @@ class SynthesizedInitialStateCommander(InitialStateCommander):
     # Sensitive to catch failures
     failure_monitor = BlocksFailureMonitor(move_tol=0.01)
     failure_finder = LLMCommanderFailureFinder(
-        llm, seed=123, max_num_trajectories=10, max_trajectory_length=200
+        llm, seed=123, max_num_trajectories=50, max_trajectory_length=10000
     )
 
     # Run the failure finder, handling empty task plan exceptions
-    try:
-        result = failure_finder.run(
-            env, controller, failure_monitor, synthesize_initial_state=True
-        )
-    except TaskThenMotionPlanningFailure as e:
-        # If the planner has no task plan (empty plan), this means the command
-        # was successfully completed. No failure found - treat as no failure.
-        if "empty" in str(e).lower() or "task plan" in str(e).lower():
-            result = None  # No failure found - command completed successfully
-        else:
-            # Re-raise if it's a different planning failure
-            raise
+    # try:
+    result = failure_finder.run(
+        env, controller, failure_monitor, synthesize_initial_state=True
+    )
 
     # Note: This test may or may not find a failure depending on the system
     if result is not None:
         print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")
+        reason = failure_monitor.failure_reason or "unknown"
+        print(f"  Failure cause: {reason}")
     else:
         print("✗ No failure found - this is acceptable for this test")
 
-    # Uncomment to visualize if a failure was found.
-    # if result is not None:
-    #     import imageio.v2 as iio
-    #     states = result.observations
-    #     imgs = [env._render_state(s) for s in states]
-    #     path = (
-    #         Path("videos")
-    #         / "test-llm-commander"
-    #         / "blocks_llm_initial_and_commander_test.mp4"
-    #     )
-    #     path.parent.mkdir(parents=True, exist_ok=True)
-    #     iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    traj_to_render = result or failure_finder.last_trajectory
+    if traj_to_render is not None:
+        states = traj_to_render.observations
+    else:
+        initial_state = env.get_initial_states().sample()
+        states = [initial_state] * 30
+    # pylint: disable=protected-access
+    imgs = [env._render_state(s) for s in states]
+    path = (
+        Path("videos")
+        / "test-llm-commander"
+        / "blocks_llm_initial_and_commander_test.mp4"
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
     env.close()
 
@@ -318,34 +296,31 @@ def test_openai_llm_blocks_commander_failure_finder():
     controller = BlocksController(seed=123, scene_spec=env.scene_spec)
     failure_monitor = BlocksFailureMonitor(move_tol=0.01)
     failure_finder = LLMCommanderFailureFinder(
-        llm, seed=123, max_num_trajectories=10, max_trajectory_length=200
+        llm, seed=123, max_num_trajectories=50, max_trajectory_length=10000
     )
 
     # Run the failure finder, handling empty task plan exceptions
-    try:
-        result = failure_finder.run(
-            env, controller, failure_monitor, synthesize_initial_state=False
-        )
-    except TaskThenMotionPlanningFailure as e:
-        if "empty" in str(e).lower() or "task plan" in str(e).lower():
-            result = None
-        else:
-            raise
-
+    # try:
+    result = failure_finder.run(
+        env, controller, failure_monitor, synthesize_initial_state=False
+    )
     # Note: This test may or may not find a failure
     if result is not None:
         print(f"✓ Failure found! Trajectory length: {len(result.observations)} steps")
     else:
         print("✗ No failure found")
 
-    # Uncomment to visualize if a failure was found.
-    # import imageio.v2 as iio
-    # if result is not None:
-    #     states = result.observations
-    #     imgs = [env._render_state(s) for s in states]
-    #     path = Path("videos") / "test-llm-commander" / "blocks_llm_commander_test.mp4"
-    #     path.parent.mkdir(parents=True, exist_ok=True)
-    #     iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    traj_to_render = result or failure_finder.last_trajectory
+    if traj_to_render is not None:
+        states = traj_to_render.observations
+    else:
+        initial_state = env.get_initial_states().sample()
+        states = [initial_state] * 30
+    # pylint: disable=protected-access
+    imgs = [env._render_state(s) for s in states]
+    path = Path("videos") / "test-llm-commander" / "blocks_llm_commander_test.mp4"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
     env.close()
 
@@ -363,19 +338,14 @@ def test_openai_llm_blocks_initial_state_and_commander_failure_finder():
     controller = BlocksController(seed=123, scene_spec=env.scene_spec)
     failure_monitor = BlocksFailureMonitor(move_tol=0.01)
     failure_finder = LLMCommanderFailureFinder(
-        llm, seed=123, max_num_trajectories=10, max_trajectory_length=200
+        llm, seed=123, max_num_trajectories=50, max_trajectory_length=10000
     )
 
     # Run the failure finder, handling empty task plan exceptions
-    try:
-        result = failure_finder.run(
-            env, controller, failure_monitor, synthesize_initial_state=True
-        )
-    except TaskThenMotionPlanningFailure as e:
-        if "empty" in str(e).lower() or "task plan" in str(e).lower():
-            result = None
-        else:
-            raise
+    # try:
+    result = failure_finder.run(
+        env, controller, failure_monitor, synthesize_initial_state=True
+    )
 
     # Note: This test may or may not find a failure
     if result is not None:
@@ -383,17 +353,20 @@ def test_openai_llm_blocks_initial_state_and_commander_failure_finder():
     else:
         print("✗ No failure found")
 
-    # Uncomment to visualize if a failure was found.
-    # import imageio.v2 as iio
-    # if result is not None:
-    #     states = result.observations
-    #     imgs = [env._render_state(s) for s in states]
-    #     path = (
-    #         Path("videos")
-    #         / "test-llm-commander"
-    #         / "blocks_llm_initial_and_commander_test.mp4"
-    #     )
-    #     path.parent.mkdir(parents=True, exist_ok=True)
-    #     iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    traj_to_render = result or failure_finder.last_trajectory
+    if traj_to_render is not None:
+        states = traj_to_render.observations
+    else:
+        initial_state = env.get_initial_states().sample()
+        states = [initial_state] * 30
+    # pylint: disable=protected-access
+    imgs = [env._render_state(s) for s in states]
+    path = (
+        Path("videos")
+        / "test-llm-commander"
+        / "blocks_llm_initial_and_commander_test.mp4"
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
     env.close()
