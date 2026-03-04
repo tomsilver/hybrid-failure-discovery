@@ -1,9 +1,5 @@
 """Unit tests for the ConveyorBelt environment."""
 
-from pathlib import Path
-
-from gymnasium.wrappers import RecordVideo
-
 from hybrid_failure_discovery.envs.conveyorbelt_env import (
     ConveyorBeltAction,
     ConveyorBeltEnv,
@@ -15,17 +11,20 @@ def test_conveyorbelt_env_with_state_checks():
     """Test ConveyorBeltEnvExternalDrop movement with box drops at a regular
     interval."""
     env = ConveyorBeltEnv()
-    video_dir = Path("videos/test-conveyorbelt-env")
-    video_dir.mkdir(parents=True, exist_ok=True)
 
-    wrapped_env = RecordVideo(
-        env,
-        str(video_dir),
-        episode_trigger=lambda episode_id: episode_id == 0,
-    )
+    # Uncomment to make videos
+    # from pathlib import Path
+    # from gymnasium.wrappers import RecordVideo
+    # video_dir = Path("videos/test-conveyorbelt-env")
+    # video_dir.mkdir(parents=True, exist_ok=True)
+    # env = RecordVideo(
+    #     env,
+    #     str(video_dir),
+    #     episode_trigger=lambda episode_id: episode_id == 0,
+    # )
 
-    wrapped_env.action_space.seed(42)
-    state, _ = wrapped_env.reset(seed=42)
+    env.action_space.seed(42)
+    state, _ = env.reset(seed=42)
     assert isinstance(state, ConveyorBeltState)
 
     # Make a sequence of actions that drops boxes at a regular interval.
@@ -43,7 +42,7 @@ def test_conveyorbelt_env_with_state_checks():
     for action_bool in action_bools:
         action = ConveyorBeltAction(action_bool)
 
-        obs, _, terminated, truncated, _ = wrapped_env.step(action)
+        obs, _, terminated, truncated, _ = env.step(action)
         assert isinstance(obs, ConveyorBeltState)
 
         # expected_velocity = speed_map.get(action_index)
@@ -65,4 +64,4 @@ def test_conveyorbelt_env_with_state_checks():
         # current_positions = obs.positions.copy()
         assert not terminated and not truncated
 
-    wrapped_env.close()
+    env.close()

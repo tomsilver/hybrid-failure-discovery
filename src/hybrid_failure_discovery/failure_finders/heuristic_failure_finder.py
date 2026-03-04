@@ -5,6 +5,14 @@ from gymnasium.core import ActType, ObsType
 from scipy.special import logsumexp
 from tomsutils.utils import sample_seed_from_rng
 
+try:
+    from task_then_motion_planning.planning import TaskThenMotionPlanningFailure
+except ImportError:
+
+    class TaskThenMotionPlanningFailure(Exception):  # type: ignore[misc, no-redef]
+        """Fallback when task_then_motion_planning is not installed."""
+
+
 from hybrid_failure_discovery.commander.commander import Commander
 from hybrid_failure_discovery.commander.random_commander import RandomCommander
 from hybrid_failure_discovery.controllers.controller import ConstraintBasedController
@@ -32,8 +40,8 @@ class HeuristicFailureFinder(FailureFinder):
         num_particles: int = 5,
         num_extension_attempts: int = 1,
         extension_termination_prob: float = 0.01,
-        max_trajectory_length: int = 100,
-        max_num_iters: int = 100,
+        max_trajectory_length: int = 1000,
+        max_num_iters: int = 10,
         boltzmann_temperature: float = 100.0,
         seed: int = 0,
     ) -> None:
@@ -46,6 +54,13 @@ class HeuristicFailureFinder(FailureFinder):
         self._boltzmann_temperature = boltzmann_temperature
         self._seed = seed
         self._rng = np.random.default_rng(seed)
+        self._last_trajectory: Trajectory | None = None
+
+    @property
+    def last_trajectory(self) -> Trajectory | None:
+        """The last fully-run trajectory, regardless of whether it was a
+        failure."""
+        return self._last_trajectory
 
     def run(
         self,
@@ -71,18 +86,42 @@ class HeuristicFailureFinder(FailureFinder):
         for itr in range(self._max_num_iters):
             # Sample new candidate particles.
             new_candidates: list[Trajectory] = []
-            for _ in range(self._num_particles):
+            for particle_idx in range(self._num_particles):
                 # Sample an existing particle to extend.
                 particle = particles[self._rng.choice(len(particles))]
                 # Extend the particle in various ways.
-                for _ in range(self._num_extension_attempts):
-                    new_candidate, failure_found = self._sample_trajectory_extension(
-                        particle, env, commander, controller, failure_monitor
-                    )
+                for extension_idx in range(self._num_extension_attempts):
+                    try:
+                        new_candidate, failure_found = (
+                            self._sample_trajectory_extension(
+                                particle, env, commander, controller, failure_monitor
+                            )
+                        )
+                    except TaskThenMotionPlanningFailure:
+                        # Task completed successfully — discard this particle and
+                        # start fresh so the search explores new initial states.
+                        new_candidate = Trajectory([initial_states.sample()], [], [])
+                        failure_found = False
                     # Check if this trajectory is a failure and return if so.
                     if failure_found:
-                        print(f"Found a failure after {itr+1} iterations")
+                        self._last_trajectory = new_candidate
+                        total_attempts = (
+                            (itr * self._num_particles * self._num_extension_attempts)
+                            + (particle_idx * self._num_extension_attempts)
+                            + extension_idx
+                            + 1
+                        )
+                        print(
+                            f"Found a failure after {itr+1} iterations "
+                            f"(particle {particle_idx+1}/{self._num_particles}, "
+                            f"extension {extension_idx+1}/"
+                            f"{self._num_extension_attempts}, "
+                            f"total attempts: ~{total_attempts})"
+                        )
                         return new_candidate
+                    # Track the last substantive (non-reset) trajectory explored.
+                    if len(new_candidate.actions) > 0:
+                        self._last_trajectory = new_candidate
                     # If the new_candidate is of max length, start over.
                     if len(new_candidate.actions) >= self._max_trajectory_length:
                         new_candidate = Trajectory([initial_states.sample()], [], [])

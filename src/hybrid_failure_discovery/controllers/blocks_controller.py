@@ -310,11 +310,13 @@ class BlocksSkill(LiftedOperatorSkill[BlocksEnvState, BlocksAction]):
         self._max_smoothing_iters_per_step = max_smoothing_iters_per_step
         self._rng = np.random.default_rng(seed)
         self._current_plan: list[BlocksAction] | None = None
+        self._last_action: BlocksAction | None = None
         self._joint_distance_fn = create_joint_distance_fn(self._robot)
         super().__init__()
 
     def reset(self, ground_operator: GroundOperator) -> None:
         self._current_plan = None
+        self._last_action = None
         return super().reset(ground_operator)
 
     def _get_action_given_objects(
@@ -322,7 +324,16 @@ class BlocksSkill(LiftedOperatorSkill[BlocksEnvState, BlocksAction]):
     ) -> BlocksAction:
         if self._current_plan is None:
             self._current_plan = self._get_plan_given_objects(objects, obs)
-        return self._current_plan.pop(0)
+        if not self._current_plan:
+            # Plan exhausted before operator effects were detected — hold the
+            # current position so the failure monitor can detect the stuck state.
+            if self._last_action is not None:
+                return self._last_action
+            # Fallback when the plan was empty from the start (IK failure).
+            return BlocksAction(list(obs.robot.joint_positions[:7]), gripper_action=0)
+        action = self._current_plan.pop(0)
+        self._last_action = action
+        return action
 
     @abc.abstractmethod
     def _get_plan_given_objects(
