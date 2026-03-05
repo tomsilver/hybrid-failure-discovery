@@ -10,24 +10,32 @@ from gym_failure_discovery.failure_finders.oracle_failure_finder import (
 from gym_failure_discovery.failure_monitors.hovercraft_failure_monitor import (
     HoverCraftFailureMonitor,
 )
+from gym_failure_discovery.utils import Policy
 
 
-def _make_switch_near_goal_policy(
-    spec: HoverCraftSceneSpec,
-) -> callable:  # type: ignore[type-arg]
-    """Switch goal pair once when the hovercraft is near the right goal."""
-    goal_x = spec.goal_pairs[0][1][0]
-    switched = False
+class _SwitchNearGoalPolicy(Policy):
+    """Switch goal pair once when near the right goal."""
 
-    def policy(obs: np.ndarray) -> int:
-        nonlocal switched
+    def __init__(self, spec: HoverCraftSceneSpec) -> None:
+        self._goal_x = spec.goal_pairs[0][1][0]
+        self._switched = False
+
+    def reset(self) -> None:
+        self._switched = False
+
+    def act(self, obs: np.ndarray) -> int:
         current_x = obs[0]
-        if abs(current_x - goal_x) < 0.1 and not switched:
-            switched = True
+        if abs(current_x - self._goal_x) < 0.1 and not self._switched:
+            self._switched = True
             return 1
         return 0
 
-    return policy
+
+class _NoOpPolicy(Policy):
+    """Always returns action 0."""
+
+    def act(self, obs: np.ndarray) -> int:
+        return 0
 
 
 @pytest.mark.make_videos
@@ -35,7 +43,7 @@ def test_oracle_finds_failure_with_switch_policy(maybe_record):  # type: ignore
     """Switching near the right goal should cause a collision."""
     spec = HoverCraftSceneSpec()
     monitor = HoverCraftFailureMonitor(spec)
-    policy = _make_switch_near_goal_policy(spec)
+    policy = _SwitchNearGoalPolicy(spec)
     env = maybe_record(HoverCraftEnv(spec))
     oracle = OracleFailureFinder(policy=policy, seed=0, max_trajectory_length=500)
     result = oracle.find_failure(env, monitor)
@@ -48,8 +56,6 @@ def test_oracle_returns_none_for_safe_policy():
     """A no-op policy over a short horizon should not produce a failure."""
     spec = HoverCraftSceneSpec()
     monitor = HoverCraftFailureMonitor(spec)
-    oracle = OracleFailureFinder(
-        policy=lambda _obs: 0, seed=42, max_trajectory_length=5
-    )
+    oracle = OracleFailureFinder(policy=_NoOpPolicy(), seed=42, max_trajectory_length=5)
     result = oracle.find_failure(HoverCraftEnv(spec), monitor)
     assert result is None

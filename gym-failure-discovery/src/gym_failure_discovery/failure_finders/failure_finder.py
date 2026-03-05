@@ -3,7 +3,7 @@
 import abc
 
 import gymnasium as gym
-import numpy as np
+from gymnasium.core import ActType, ObsType
 
 from gym_failure_discovery.failure_monitors.failure_monitor import FailureMonitor
 
@@ -14,9 +14,9 @@ class FailureFinder(abc.ABC):
     @abc.abstractmethod
     def find_failure(
         self,
-        env: gym.Env,  # type: ignore[type-arg]
+        env: gym.Env[ObsType, ActType],
         monitor: FailureMonitor,
-    ) -> list[tuple[np.ndarray, int]] | None:
+    ) -> list[tuple[ObsType, ActType]] | None:
         """Search for a failure trajectory.
 
         Returns a list of (observation, action) pairs if a failure is

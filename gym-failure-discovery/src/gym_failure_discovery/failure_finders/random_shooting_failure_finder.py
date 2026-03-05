@@ -1,11 +1,24 @@
 """A failure finder that randomly samples action sequences."""
 
+from typing import Any
+
 import gymnasium as gym
 import numpy as np
+from gymnasium.core import ActType, ObsType
 
 from gym_failure_discovery.failure_finders.failure_finder import FailureFinder
-from gym_failure_discovery.failure_monitor_wrapper import FailureMonitorWrapper
 from gym_failure_discovery.failure_monitors.failure_monitor import FailureMonitor
+from gym_failure_discovery.utils import Policy, rollout
+
+
+class _RandomPolicy(Policy):
+    """Samples actions uniformly from the action space."""
+
+    def __init__(self, action_space: gym.Space[ActType]) -> None:
+        self._action_space = action_space
+
+    def act(self, obs: Any) -> Any:
+        return self._action_space.sample()
 
 
 class RandomShootingFailureFinder(FailureFinder):
@@ -23,20 +36,16 @@ class RandomShootingFailureFinder(FailureFinder):
 
     def find_failure(
         self,
-        env: gym.Env,  # type: ignore[type-arg]
+        env: gym.Env[ObsType, ActType],
         monitor: FailureMonitor,
-    ) -> list[tuple[np.ndarray, int]] | None:
-        wrapped = FailureMonitorWrapper(env, monitor)
+    ) -> list[tuple[ObsType, ActType]] | None:
+        policy = _RandomPolicy(env.action_space)
         rng = np.random.default_rng(self._seed)
         for _ in range(self._max_num_trajectories):
-            obs, _ = wrapped.reset(seed=int(rng.integers(2**31)))
-            trajectory: list[tuple[np.ndarray, int]] = []
-            for _ in range(self._max_trajectory_length):
-                action = int(wrapped.action_space.sample())
-                trajectory.append((obs, action))
-                obs, reward, terminated, truncated, _ = wrapped.step(action)
-                if reward == 1.0:
-                    return trajectory
-                if terminated or truncated:
-                    break
+            env_seed = int(rng.integers(2**31))
+            result = rollout(
+                env, monitor, policy, env_seed, self._max_trajectory_length
+            )
+            if result is not None:
+                return result
         return None
