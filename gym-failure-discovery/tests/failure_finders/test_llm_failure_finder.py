@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from tomsutils.llm import LargeLanguageModel
+from tomsutils.llm import LargeLanguageModel, OpenAILLM
 
 from gym_failure_discovery.envs.hovercraft_env import HoverCraftEnv, HoverCraftSceneSpec
 from gym_failure_discovery.failure_finders.llm_failure_finder import LLMFailureFinder
@@ -62,6 +62,23 @@ def test_llm_failure_finder_with_mock(maybe_record):  # type: ignore
     env = maybe_record(HoverCraftEnv(spec))
     monitor = HoverCraftFailureMonitor(spec)
     finder = LLMFailureFinder(llm, seed=0, max_trajectory_length=500)
+    result = finder.find_failure(env, monitor)
+    assert result is not None
+    assert len(result) > 0
+    env.close()
+
+
+@pytest.mark.run_llms
+@pytest.mark.make_videos
+def test_llm_failure_finder_openai(maybe_record):  # type: ignore
+    """Run a real OpenAI LLM to find a hovercraft failure."""
+    llm = OpenAILLM("gpt-4o", Path("./llm_cache"), max_tokens=4096)
+    spec = HoverCraftSceneSpec()
+    env = maybe_record(HoverCraftEnv(spec))
+    monitor = HoverCraftFailureMonitor(spec)
+    finder = LLMFailureFinder(
+        llm, seed=0, max_trajectory_length=500, max_num_attempts=5
+    )
     result = finder.find_failure(env, monitor)
     assert result is not None
     assert len(result) > 0
