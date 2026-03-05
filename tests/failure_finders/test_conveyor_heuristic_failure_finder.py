@@ -175,15 +175,15 @@ def test_heuristic_failure_finder_conveyorbelt():
     # assert result is not None
 
     # If a failure was found, save visualization
-    if result is not None:
-        states = result.observations
-        # Accessing protected method _render_state is intentional for visualization
-        # pylint: disable=protected-access
-        imgs = [env._render_state(s) for s in states]
-        path = (
-            Path("videos")
-            / "test-heuristic-failure-finding"
-            / "conveyorbelt_heuristic_test.mp4"
-        )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    # if result is not None:
+    #     states = result.observations
+    #     # Accessing protected method _render_state is intentional for visualization
+    #     # pylint: disable=protected-access
+    #     imgs = [env._render_state(s) for s in states]
+    #     path = (
+    #         Path("videos")
+    #         / "test-heuristic-failure-finding"
+    #         / "conveyorbelt_heuristic_test.mp4"
+    #     )
+    #     path.parent.mkdir(parents=True, exist_ok=True)
+    #     iio.mimsave(path, imgs, fps=env.metadata["render_fps"])

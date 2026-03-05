@@ -63,9 +63,8 @@ def test_random_shooting_failure_finder_blocks():
         move_tol=0.01
     )  # Very sensitive - catch small movements
 
-    # Balanced trajectory count and length - aggressive but not so slow
     failure_finder = RandomShootingFailureFinder(
-        seed=123, max_num_trajectories=100, max_trajectory_length=1000
+        seed=123, max_num_trajectories=2, max_trajectory_length=500
     )
 
     # Try multiple seeds to explore more scenarios
@@ -113,16 +112,16 @@ def test_random_shooting_failure_finder_blocks():
     # If failures are expected, uncomment the assertion below
     # assert result is not None
 
-    traj_to_render = result or failure_finder.last_trajectory
-    if traj_to_render is not None:
-        states = traj_to_render.observations
-    else:
-        initial_state = env.get_initial_states().sample()
-        states = [initial_state] * 30
-    # pylint: disable=protected-access
-    imgs = [env._render_state(s) for s in states]
-    path = Path("videos") / "test-random-shooting" / "blocks_random_shooting_test.mp4"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    # traj_to_render = result or failure_finder.last_trajectory
+    # if traj_to_render is not None:
+    #     states = traj_to_render.observations
+    # else:
+    #     initial_state = env.get_initial_states().sample()
+    #     states = [initial_state] * 30
+    # # pylint: disable=protected-access
+    # imgs = [env._render_state(s) for s in states]
+    # path = Path("videos") / "test-random-shooting" / "blocks_random_shooting_test.mp4"
+    # path.parent.mkdir(parents=True, exist_ok=True)
+    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
     env.close()

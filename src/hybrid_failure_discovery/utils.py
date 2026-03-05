@@ -75,8 +75,8 @@ def extend_trajectory_until_failure(
     # Start the extension.
     state = states[-1]
     command = commands[-1] if commands else None
-    consecutive_planning_failures = 0
-    max_consecutive_planning_failures = 10
+    command_failures = 0
+    max_command_failures = 2
     while not termination_fn(trajectory):
         # Sample a new command only when the previous one has completed.
         if need_new_command:
@@ -91,16 +91,12 @@ def extend_trajectory_until_failure(
             action = controller.step(state, command)
         except TaskThenMotionPlanningFailure:
             if catch_task_planning_failure:
-                consecutive_planning_failures += 1
-                if consecutive_planning_failures >= max_consecutive_planning_failures:
+                command_failures += 1
+                if command_failures >= max_command_failures:
                     return Trajectory(states, actions, commands), False
-                # Planning failed for this command (e.g. goal unreachable
-                # from current state).  Mark the command as done so the
-                # loop will sample a new one on the next iteration.
                 need_new_command = True
                 continue
             raise
-        consecutive_planning_failures = 0
         # Update the state.
         next_states = env.get_next_states(state, action)
         next_states.seed(sample_seed_from_rng(rng))
@@ -113,11 +109,18 @@ def extend_trajectory_until_failure(
         # Check for failure.
         if failure_monitor.step(command, action, state):
             return Trajectory(states, actions, commands), True
-        # When the monitor signals "stuck" (motion plan exhausted), treat
-        # the current command as completed so a new one can be sampled
-        # rather than terminating the whole trajectory.
+        # When the monitor signals "stuck" (motion plan exhausted),
+        # treat the current command as completed so a new one can be
+        # sampled.  Reset the stuck counter so the next command gets a
+        # fair chance, and track failures to avoid infinite cycling.
         if getattr(failure_monitor, "is_stuck", False):
+            command_failures += 1
+            if command_failures >= max_command_failures:
+                return Trajectory(states, actions, commands), False
             need_new_command = True
+            if hasattr(failure_monitor, "_stuck_count"):
+                failure_monitor._stuck_count = 0
         else:
+            command_failures = 0
             need_new_command = controller.command_completed(state, command)
     return Trajectory(states, actions, commands), False

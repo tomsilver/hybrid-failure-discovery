@@ -609,9 +609,7 @@ class BlocksController(
             sample_fn=partial(self._get_action, state, command),
         )
 
-    def command_completed(
-        self, state: BlocksEnvState, command: BlocksCommand
-    ) -> bool:
+    def command_completed(self, state: BlocksEnvState, command: BlocksCommand) -> bool:
         if self._current_goal != command:
             return True
         # Check that the planner has no remaining operators and the
