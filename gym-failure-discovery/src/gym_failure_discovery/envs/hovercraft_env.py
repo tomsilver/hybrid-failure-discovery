@@ -131,7 +131,7 @@ class HoverCraftEnv(gym.Env[np.ndarray, int]):
         self.observation_space = gym.spaces.Box(low, high, dtype=np.float64)
 
         # LQR gain.
-        K, _, _ = ct.dlqr(  # pylint: disable=invalid-name
+        K, _, _ = ct.dlqr(
             self.scene_spec.A,
             self.scene_spec.B,
             self.scene_spec.Q,
