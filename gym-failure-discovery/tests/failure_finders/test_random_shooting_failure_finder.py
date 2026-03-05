@@ -1,5 +1,7 @@
 """Tests for the random shooting failure finder."""
 
+import pytest
+
 from gym_failure_discovery.envs.hovercraft_env import HoverCraftEnv, HoverCraftSceneSpec
 from gym_failure_discovery.failure_finders.random_shooting_failure_finder import (
     RandomShootingFailureFinder,
@@ -9,10 +11,11 @@ from gym_failure_discovery.failure_monitors.hovercraft_failure_monitor import (
 )
 
 
-def test_random_shooting_finds_hovercraft_failure():
+@pytest.mark.make_videos
+def test_random_shooting_finds_hovercraft_failure(maybe_record):  # type: ignore
     """Random shooting should find a collision in the hovercraft env."""
     spec = HoverCraftSceneSpec()
-    env = HoverCraftEnv(spec)
+    env = maybe_record(HoverCraftEnv(spec))
     monitor = HoverCraftFailureMonitor(spec)
     finder = RandomShootingFailureFinder(
         seed=0, max_num_trajectories=50, max_trajectory_length=200

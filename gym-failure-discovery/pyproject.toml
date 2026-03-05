@@ -19,6 +19,9 @@ dependencies = [
 [project.optional-dependencies]
 develop = [
     "black",
+    "imageio",
+    "imageio-ffmpeg",
+    "moviepy",
     "isort",
     "mypy",
     "pylint>=2.14.5",
