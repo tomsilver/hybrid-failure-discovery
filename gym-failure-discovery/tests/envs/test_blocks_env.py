@@ -10,6 +10,21 @@ from gym_failure_discovery.envs.blocks_env import (
     BlocksEnv,
     BlocksSceneSpec,
 )
+from gym_failure_discovery.failure_monitors.blocks_failure_monitor import (
+    BlocksFailureMonitor,
+)
+
+
+def _pick(block: int) -> dict:
+    return {"type": PICK, "block": block}
+
+
+def _unstack(block: int) -> dict:
+    return {"type": UNSTACK, "block": block}
+
+
+def _stack(block: int) -> dict:
+    return {"type": STACK, "block": block}
 
 
 def test_reset_places_blocks_on_table():
@@ -30,7 +45,7 @@ def test_pick_block():
     spec = BlocksSceneSpec(num_blocks=3)
     env = BlocksEnv(spec)
     env.reset(seed=0)
-    obs, _, _, _, _ = env.step({"type": PICK, "block": 0})
+    obs, _, _, _, _ = env.step(_pick(0))
     assert obs["held_block"] == 0
     env.close()
 
@@ -42,14 +57,11 @@ def test_pick_and_stack():
     obs, _ = env.reset(seed=0)
     target_pos_before = obs["block_positions"][1].copy()
 
-    # Pick block 0.
-    obs, _, _, _, _ = env.step({"type": PICK, "block": 0})
+    obs, _, _, _, _ = env.step(_pick(0))
     assert obs["held_block"] == 0
 
-    # Stack onto block 1.
-    obs, _, _, _, _ = env.step({"type": STACK, "block": 1})
+    obs, _, _, _, _ = env.step(_stack(1))
     assert obs["held_block"] == 3  # nothing held
-    # Block 0 should now be above block 1.
     assert obs["block_positions"][0, 2] > target_pos_before[2] + 0.01
     env.close()
 
@@ -60,12 +72,10 @@ def test_unstack_block():
     env = BlocksEnv(spec)
     env.reset(seed=0)
 
-    # First stack: pick 0, stack on 1.
-    env.step({"type": PICK, "block": 0})
-    env.step({"type": STACK, "block": 1})
+    env.step(_pick(0))
+    env.step(_stack(1))
 
-    # Unstack block 0 from block 1.
-    obs, _, _, _, _ = env.step({"type": UNSTACK, "block": 0})
+    obs, _, _, _, _ = env.step(_unstack(0))
     assert obs["held_block"] == 0
     env.close()
 
@@ -75,7 +85,7 @@ def test_stack_without_holding_is_noop():
     spec = BlocksSceneSpec(num_blocks=3)
     env = BlocksEnv(spec)
     obs_before, _ = env.reset(seed=0)
-    obs_after, _, _, _, _ = env.step({"type": STACK, "block": 1})
+    obs_after, _, _, _, _ = env.step(_stack(1))
     assert obs_after["held_block"] == 3
     np.testing.assert_allclose(
         obs_before["block_positions"],
@@ -91,9 +101,8 @@ def test_safe_height_affects_trajectory():
         spec = BlocksSceneSpec(num_blocks=3, safe_height=safe_h)
         env = BlocksEnv(spec)
         env.reset(seed=0)
-        env.step({"type": PICK, "block": 0})
+        env.step(_pick(0))
         state = env.get_state()
-        # The held block should have been lifted to around safe_height.
         held_name = env.block_names[state.held_block_idx]
         held_z = state.get_block_state(held_name).pose.position[2]
         assert abs(held_z - safe_h) < 0.1, f"safe_height={safe_h}, held_z={held_z}"
@@ -117,7 +126,7 @@ def test_frame_buffer():
     spec = BlocksSceneSpec(num_blocks=3)
     env = BlocksEnv(spec, render_mode="rgb_array")
     env.reset(seed=0)
-    env.step({"type": PICK, "block": 0})
+    env.step(_pick(0))
     frames = env.pop_frame_buffer()
     assert len(frames) > 1
     assert frames[0].shape[2] == 3
@@ -130,10 +139,33 @@ def test_blocks_pick_and_stack_video(maybe_record):  # type: ignore
     spec = BlocksSceneSpec(num_blocks=4)
     env = maybe_record(BlocksEnv(spec))
     env.reset(seed=0)
-    # Pick block 0, stack on block 1.
-    env.step({"type": PICK, "block": 0})
-    env.step({"type": STACK, "block": 1})
-    # Pick block 2, stack on block 0 (which is on block 1).
-    env.step({"type": PICK, "block": 2})
-    env.step({"type": STACK, "block": 0})
+    env.step(_pick(0))
+    env.step(_stack(1))
+    env.step(_pick(2))
+    env.step(_stack(0))
     env.close()
+
+
+@pytest.mark.make_videos
+def test_blocks_tall_tower_failure(maybe_record):  # type: ignore
+    """Build a tall tower with low safe_height to elicit a collision."""
+    spec = BlocksSceneSpec(num_blocks=6, safe_height=0.15)
+    env = BlocksEnv(spec)
+    wrapped = maybe_record(env)
+    monitor = BlocksFailureMonitor(env)
+    obs, _ = wrapped.reset(seed=0)
+    monitor.reset(obs)
+
+    failure = False
+    for i in range(1, spec.num_blocks):
+        for action in [_pick(i), _stack(i - 1)]:
+            prev_obs = obs
+            obs, _, _, _, _ = wrapped.step(action)
+            if monitor.step(prev_obs, action, obs):
+                failure = True
+                break
+        if failure:
+            break
+
+    assert failure, "Expected a collision building a tall tower with safe_height=0.15"
+    wrapped.close()
