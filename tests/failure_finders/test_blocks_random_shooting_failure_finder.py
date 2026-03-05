@@ -9,10 +9,6 @@ The test suite includes scenarios to test failure detection:
    be reliably found (validates failure detection works)
 """
 
-from pathlib import Path
-
-import imageio.v2 as iio
-
 from hybrid_failure_discovery.controllers.blocks_controller import BlocksController
 from hybrid_failure_discovery.envs.blocks_env import BlocksEnv
 from hybrid_failure_discovery.failure_finders.random_shooting_failure_finder import (

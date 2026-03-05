@@ -1,9 +1,5 @@
 """Tests for heuristic_failure_finder.py with ConveyorBelt environment."""
 
-from pathlib import Path
-
-import imageio.v2 as iio
-
 from hybrid_failure_discovery.controllers.conveyorbelt_controller import (
     ConveyorBeltController,
 )

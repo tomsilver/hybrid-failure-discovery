@@ -50,6 +50,10 @@ class BlocksFailureMonitor(FailureMonitor[BlocksEnvState, BlocksAction, BlocksCo
         """
         return self._stuck_count >= self._stuck_steps
 
+    def reset_stuck(self) -> None:
+        """Reset the stuck counter so a new command gets a fair chance."""
+        self._stuck_count = 0
+
     def reset(self, initial_state: BlocksEnvState) -> None:
         self._previous_state = initial_state
         self._stuck_count = 0

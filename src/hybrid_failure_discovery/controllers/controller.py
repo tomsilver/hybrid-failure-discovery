@@ -30,7 +30,9 @@ class Controller(Generic[ObsType, ActType, CommandType]):
     def get_command_space(self) -> Space[CommandType]:
         """Get the command space for this controller."""
 
-    def command_completed(self, state: ObsType, command: CommandType) -> bool:
+    def command_completed(  # pylint: disable=unused-argument
+        self, state: ObsType, command: CommandType
+    ) -> bool:
         """Return True if the controller has finished executing *command*.
 
         Called after each step.  When True, the loop will sample a new

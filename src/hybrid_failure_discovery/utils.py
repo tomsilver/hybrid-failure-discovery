@@ -74,7 +74,7 @@ def extend_trajectory_until_failure(
         need_new_command = controller.command_completed(states[t + 1], commands[t])
     # Start the extension.
     state = states[-1]
-    command = commands[-1] if commands else None
+    command: CommandType = commands[-1] if commands else None  # type: ignore[assignment]
     command_failures = 0
     max_command_failures = 2
     while not termination_fn(trajectory):
@@ -118,8 +118,8 @@ def extend_trajectory_until_failure(
             if command_failures >= max_command_failures:
                 return Trajectory(states, actions, commands), False
             need_new_command = True
-            if hasattr(failure_monitor, "_stuck_count"):
-                failure_monitor._stuck_count = 0
+            if hasattr(failure_monitor, "reset_stuck"):
+                failure_monitor.reset_stuck()
         else:
             command_failures = 0
             need_new_command = controller.command_completed(state, command)
