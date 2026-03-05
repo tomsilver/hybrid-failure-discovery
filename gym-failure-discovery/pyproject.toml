@@ -12,6 +12,10 @@ dependencies = [
     "numpy",
     "matplotlib",
     "control",
+    "pybullet",
+    "pybullet_helpers@git+https://github.com/Princeton-Robot-Planning-and-Learning/prpl-mono.git#subdirectory=pybullet-helpers",
+    "relational_structs@git+https://github.com/Princeton-Robot-Planning-and-Learning/prpl-mono.git#subdirectory=relational-structs",
+    "task_then_motion_planning@git+https://github.com/tomsilver/task-then-motion-planning.git",
     "tomsutils@git+https://github.com/tomsilver/toms-utils.git",
     "tomsgeoms2d@git+https://github.com/tomsilver/toms-geoms-2d.git",
 ]
@@ -56,5 +60,9 @@ exclude = ["venv/*"]
 module = [
     "matplotlib.*",
     "control.*",
+    "pybullet",
+    "pybullet_helpers.*",
+    "relational_structs.*",
+    "task_then_motion_planning.*",
 ]
 ignore_missing_imports = true
