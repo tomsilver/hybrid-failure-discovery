@@ -94,6 +94,22 @@ def test_packages_move_along_belt():
     assert obs_after["positions"][0] > pos_before
 
 
+def test_default_secret_sequence_causes_failure():
+    """The default secret sequence should trigger a failure via the monitor."""
+    env = ConveyorBeltEnv()
+    monitor = ConveyorBeltFailureMonitor()
+    obs, _ = env.reset(seed=0)
+    monitor.reset(obs)
+
+    for mode in env.scene_spec.secret_sequence:
+        prev = obs
+        obs, _, _, _, _ = env.step(mode)
+        if monitor.step(prev, mode, obs):
+            return
+
+    raise AssertionError("Default secret sequence did not trigger a failure")
+
+
 @pytest.mark.make_videos
 def test_conveyorbelt_video(maybe_record):  # type: ignore
     """Run the belt with fast drops, recording a video."""
