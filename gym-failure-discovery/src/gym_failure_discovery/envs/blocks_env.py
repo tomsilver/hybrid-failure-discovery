@@ -165,12 +165,13 @@ class BlocksEnv(gym.Env[dict[str, Any], dict[str, Any]]):
         self,
         scene_spec: BlocksSceneSpec | None = None,
         use_gui: bool = False,
+        render_mode: str | None = None,
     ) -> None:
         super().__init__()
         if scene_spec is None:
             scene_spec = BlocksSceneSpec()
         self.scene_spec = scene_spec
-        self.render_mode = "rgb_array"
+        self.render_mode = render_mode
 
         # PyBullet setup.
         if use_gui:
@@ -226,6 +227,9 @@ class BlocksEnv(gym.Env[dict[str, Any], dict[str, Any]]):
         # Grasp state.
         self._held_block_idx: int = -1
         self._held_grasp_transform: Pose | None = None
+
+        # Frame buffer for intermediate renders during high-level steps.
+        self._frame_buffer: list[np.ndarray] = []
 
         # Motion planning helper.
         self._joint_distance_fn = create_joint_distance_fn(self.robot)
@@ -293,6 +297,16 @@ class BlocksEnv(gym.Env[dict[str, Any], dict[str, Any]]):
         return obs, 0.0, False, False, {}
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
+        return self._capture_frame()  # type: ignore[return-value]
+
+    def pop_frame_buffer(self) -> list[np.ndarray]:
+        """Return and clear buffered intermediate frames."""
+        frames = list(self._frame_buffer)
+        self._frame_buffer.clear()
+        return frames
+
+    def _capture_frame(self) -> np.ndarray:
+        """Take a snapshot of the current scene."""
         img = capture_image(
             self.physics_client_id,
             camera_target=self.scene_spec.robot_base_pose.position,
@@ -302,7 +316,7 @@ class BlocksEnv(gym.Env[dict[str, Any], dict[str, Any]]):
         )
         background_mask = (img == [255, 255, 255]).all(axis=2)
         img[background_mask] = 0
-        return img  # type: ignore[return-value]
+        return img
 
     def close(self) -> None:
         p.disconnect(self.physics_client_id)
@@ -487,3 +501,6 @@ class BlocksEnv(gym.Env[dict[str, Any], dict[str, Any]]):
             if i == 0:
                 for _ in range(self.scene_spec.num_sim_steps_per_action):
                     p.stepSimulation(physicsClientId=self.physics_client_id)
+
+        if self.render_mode == "rgb_array":
+            self._frame_buffer.append(self._capture_frame())

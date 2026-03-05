@@ -1,6 +1,7 @@
 """Tests for the blocks environment."""
 
 import numpy as np
+import pytest
 
 from gym_failure_discovery.envs.blocks_env import (
     PICK,
@@ -108,4 +109,31 @@ def test_render():
     assert img is not None
     assert len(img.shape) == 3
     assert img.shape[2] == 3
+    env.close()
+
+
+def test_frame_buffer():
+    """Intermediate frames are buffered when render_mode is set."""
+    spec = BlocksSceneSpec(num_blocks=3)
+    env = BlocksEnv(spec, render_mode="rgb_array")
+    env.reset(seed=0)
+    env.step({"type": PICK, "block": 0})
+    frames = env.pop_frame_buffer()
+    assert len(frames) > 1
+    assert frames[0].shape[2] == 3
+    env.close()
+
+
+@pytest.mark.make_videos
+def test_blocks_pick_and_stack_video(maybe_record):  # type: ignore
+    """Pick and stack several blocks, recording a video."""
+    spec = BlocksSceneSpec(num_blocks=4)
+    env = maybe_record(BlocksEnv(spec))
+    env.reset(seed=0)
+    # Pick block 0, stack on block 1.
+    env.step({"type": PICK, "block": 0})
+    env.step({"type": STACK, "block": 1})
+    # Pick block 2, stack on block 0 (which is on block 1).
+    env.step({"type": PICK, "block": 2})
+    env.step({"type": STACK, "block": 0})
     env.close()

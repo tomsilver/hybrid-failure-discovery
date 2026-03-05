@@ -5,7 +5,8 @@ from typing import Any
 
 import gymnasium as gym
 import pytest
-from gymnasium.wrappers import RecordVideo
+
+from gym_failure_discovery.utils import RecordBufferedVideo
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -66,10 +67,11 @@ def maybe_record(
     def _wrap(env: gym.Env) -> gym.Env:  # type: ignore[type-arg]
         if not make_videos:
             return env
+        env.render_mode = "rgb_array"
         videos_dir = Path(__file__).parent.parent / "videos"
         videos_dir.mkdir(exist_ok=True)
         test_name = request.node.name
-        return RecordVideo(
+        return RecordBufferedVideo(
             env,
             video_folder=str(videos_dir),
             name_prefix=test_name,

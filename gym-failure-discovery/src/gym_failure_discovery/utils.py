@@ -1,10 +1,11 @@
 """Shared utilities for failure discovery."""
 
 import abc
-from typing import Any
+from typing import Any, SupportsFloat
 
 import gymnasium as gym
 from gymnasium.core import ActType, ObsType
+from gymnasium.wrappers import RecordVideo
 
 from gym_failure_discovery.failure_monitor_wrapper import FailureMonitorWrapper
 from gym_failure_discovery.failure_monitors.failure_monitor import FailureMonitor
@@ -46,3 +47,38 @@ def rollout(
         if terminated or truncated:
             break
     return None
+
+
+class RecordBufferedVideo(RecordVideo):  # type: ignore[type-arg]
+    """Like RecordVideo, but also captures buffered intermediate frames.
+
+    Some environments (e.g. BlocksEnv) execute many internal simulation
+    steps per high-level ``step()`` call and buffer the intermediate
+    renders.  This wrapper drains that buffer so every intermediate frame
+    appears in the recorded video.
+
+    Falls back to standard single-frame capture for environments that
+    don't implement ``pop_frame_buffer()``.
+    """
+
+    def step(
+        self, action: ActType
+    ) -> tuple[ObsType, SupportsFloat, bool, bool, dict[str, Any]]:
+        obs, rew, terminated, truncated, info = self.env.step(action)
+        self.step_id += 1
+
+        if self.step_trigger and self.step_trigger(self.step_id):
+            self.start_recording(f"{self.name_prefix}-step-{self.step_id}")
+
+        if self.recording:
+            unwrapped = self.env.unwrapped
+            if hasattr(unwrapped, "pop_frame_buffer"):
+                frames = unwrapped.pop_frame_buffer()
+                self.recorded_frames.extend(frames)
+            else:
+                self._capture_frame()  # type: ignore[no-untyped-call]
+
+            if len(self.recorded_frames) > self.video_length:
+                self.stop_recording()  # type: ignore[no-untyped-call]
+
+        return obs, rew, terminated, truncated, info
