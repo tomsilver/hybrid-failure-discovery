@@ -131,7 +131,7 @@ class HoverCraftEnv(gym.Env[np.ndarray, int]):
         self.observation_space = gym.spaces.Box(low, high, dtype=np.float64)
 
         # LQR gain.
-        K, _, _ = ct.dlqr(
+        K, _, _ = ct.dlqr(  # pylint: disable=invalid-name
             self.scene_spec.A,
             self.scene_spec.B,
             self.scene_spec.Q,
@@ -162,9 +162,7 @@ class HoverCraftEnv(gym.Env[np.ndarray, int]):
         self._goal_pair_index = (0, 0)
         return self._get_obs(), {}
 
-    def step(
-        self, action: int
-    ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
+    def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         assert self._state_vec is not None
         switch = bool(action)
 
@@ -191,8 +189,7 @@ class HoverCraftEnv(gym.Env[np.ndarray, int]):
 
         # Integrate dynamics.
         self._state_vec = (
-            self.scene_spec.A @ self._state_vec
-            + self.scene_spec.B @ action_vec
+            self.scene_spec.A @ self._state_vec + self.scene_spec.B @ action_vec
         )
         self._time += self.scene_spec.dt
 

@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from gym_failure_discovery.hovercraft_env import HoverCraftEnv
+from gym_failure_discovery.envs.hovercraft_env import HoverCraftEnv
 
 
 def test_reset_and_step():
