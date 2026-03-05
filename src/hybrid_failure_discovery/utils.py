@@ -53,11 +53,12 @@ def extend_trajectory_until_failure(
     failure_monitor.reset(states[0])
     controller.reset(states[0])
     commander.reset(states[0])
+    need_new_command = True
     for t in range(len(actions)):
         # NOTE: this makes a strong assumption that controllers are
         # deterministic!! Check this assumption in a hacky way.
         # Skip this check for RandomCommander since it's non-deterministic
-        if not isinstance(commander, RandomCommander):
+        if need_new_command and not isinstance(commander, RandomCommander):
             try:
                 recovered_command = commander.get_command()
             except TaskThenMotionPlanningFailure:
@@ -70,23 +71,36 @@ def extend_trajectory_until_failure(
         failure_found = failure_monitor.step(commands[t], actions[t], states[t + 1])
         assert not failure_found, "Should have already returned"
         commander.update(actions[t], states[t + 1])
+        need_new_command = controller.command_completed(states[t + 1], commands[t])
     # Start the extension.
     state = states[-1]
+    command = commands[-1] if commands else None
+    consecutive_planning_failures = 0
+    max_consecutive_planning_failures = 10
     while not termination_fn(trajectory):
-        # Sample a command.
-        try:
-            command = commander.get_command()
-        except TaskThenMotionPlanningFailure:
-            if catch_task_planning_failure:
-                return Trajectory(states, actions, commands), False
-            raise
+        # Sample a new command only when the previous one has completed.
+        if need_new_command:
+            try:
+                command = commander.get_command()
+            except TaskThenMotionPlanningFailure:
+                if catch_task_planning_failure:
+                    return Trajectory(states, actions, commands), False
+                raise
         # Sample an action.
         try:
             action = controller.step(state, command)
         except TaskThenMotionPlanningFailure:
             if catch_task_planning_failure:
-                return Trajectory(states, actions, commands), False
+                consecutive_planning_failures += 1
+                if consecutive_planning_failures >= max_consecutive_planning_failures:
+                    return Trajectory(states, actions, commands), False
+                # Planning failed for this command (e.g. goal unreachable
+                # from current state).  Mark the command as done so the
+                # loop will sample a new one on the next iteration.
+                need_new_command = True
+                continue
             raise
+        consecutive_planning_failures = 0
         # Update the state.
         next_states = env.get_next_states(state, action)
         next_states.seed(sample_seed_from_rng(rng))
@@ -99,8 +113,11 @@ def extend_trajectory_until_failure(
         # Check for failure.
         if failure_monitor.step(command, action, state):
             return Trajectory(states, actions, commands), True
-        # Allow monitors to signal early termination without a failure (e.g.
-        # robot stuck with motion plan exhausted).
+        # When the monitor signals "stuck" (motion plan exhausted), treat
+        # the current command as completed so a new one can be sampled
+        # rather than terminating the whole trajectory.
         if getattr(failure_monitor, "is_stuck", False):
-            return Trajectory(states, actions, commands), False
+            need_new_command = True
+        else:
+            need_new_command = controller.command_completed(state, command)
     return Trajectory(states, actions, commands), False

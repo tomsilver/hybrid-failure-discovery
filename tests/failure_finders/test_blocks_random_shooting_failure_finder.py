@@ -65,7 +65,7 @@ def test_random_shooting_failure_finder_blocks():
 
     # Balanced trajectory count and length - aggressive but not so slow
     failure_finder = RandomShootingFailureFinder(
-        seed=123, max_num_trajectories=20, max_trajectory_length=1000
+        seed=123, max_num_trajectories=100, max_trajectory_length=1000
     )
 
     # Try multiple seeds to explore more scenarios

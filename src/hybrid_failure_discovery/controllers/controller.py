@@ -30,6 +30,15 @@ class Controller(Generic[ObsType, ActType, CommandType]):
     def get_command_space(self) -> Space[CommandType]:
         """Get the command space for this controller."""
 
+    def command_completed(self, state: ObsType, command: CommandType) -> bool:
+        """Return True if the controller has finished executing *command*.
+
+        Called after each step.  When True, the loop will sample a new
+        command before the next step.  The default implementation
+        returns True (each command lasts exactly one step).
+        """
+        return True
+
 
 class ConstraintBasedController(Controller[ObsType, ActType, CommandType]):
     """A controller that generates a space of possible actions and then samples

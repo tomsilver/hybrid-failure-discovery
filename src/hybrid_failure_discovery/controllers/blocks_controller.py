@@ -25,7 +25,10 @@ from relational_structs import (
     Type,
     Variable,
 )
-from task_then_motion_planning.planning import TaskThenMotionPlanner
+from task_then_motion_planning.planning import (
+    TaskThenMotionPlanner,
+    TaskThenMotionPlanningFailure,
+)
 from task_then_motion_planning.structs import LiftedOperatorSkill, Perceiver, Skill
 from tomsutils.spaces import FunctionalSpace
 
@@ -606,6 +609,25 @@ class BlocksController(
             sample_fn=partial(self._get_action, state, command),
         )
 
+    def command_completed(
+        self, state: BlocksEnvState, command: BlocksCommand
+    ) -> bool:
+        if self._current_goal != command:
+            return True
+        # Check that the planner has no remaining operators and the
+        # current skill has finished executing all of its planned actions.
+        planner = self._planner
+        if planner._current_task_plan:
+            return False
+        if planner._current_skill is not None:
+            skill = planner._current_skill
+            if isinstance(skill, BlocksSkill) and skill._current_plan:
+                return False
+        # All operators executed and skill plan drained — verify goal.
+        atoms = self._perceiver._parse_observation(state)
+        goal = self._perceiver._get_goal({"goal": command})
+        return goal.issubset(atoms)
+
     def _get_action(
         self,
         state: BlocksEnvState,
@@ -614,9 +636,16 @@ class BlocksController(
     ) -> BlocksAction:
         del rng  # the randomization is buried right now
         if self._current_goal != command:
-            # Replan.
+            # Replan.  The PDDL planner may fail to find a plan for the
+            # new goal from the current state; surface that as a
+            # TaskThenMotionPlanningFailure so callers can handle it.
             info = {"goal": command}
-            self._planner.reset(state, info)
+            try:
+                self._planner.reset(state, info)
+            except AssertionError as e:
+                raise TaskThenMotionPlanningFailure(
+                    f"Planning failed for command {command}: {e}"
+                ) from e
             self._current_goal = command
         return self._planner.step(state)
 

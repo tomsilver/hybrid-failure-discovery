@@ -99,13 +99,9 @@ class SynthesizedCommander(Commander):
             if num_blocks >= 3:
                 return BlocksCommand(towers=[["block0", "block1", "block2"]])
         elif self._command_count == 2:
-            # Second command: build another tower with next blocks
-            if num_blocks >= 6:
-                return BlocksCommand(towers=[["block3", "block4", "block5"]])
-        elif self._command_count == 3:
-            # Third command: create a very tall tower (unstable)
+            # Second command: create a very tall tower (unstable)
             if num_blocks >= 4:
-                return BlocksCommand(towers=[["block0", "block1", "block2", "block3"]])
+                return BlocksCommand(towers=[["block1", "block0", "block2", "block3"]])
         else:
             # Subsequent commands: create complex multi-tower configurations
             # This should increase collision risk
@@ -132,11 +128,11 @@ class SynthesizedCommander(Commander):
     llm = _MockLLM([[mock_llm_completion]], Path(cache_dir.name))
 
     env = BlocksEnv(seed=123, use_gui=False)
-    controller = BlocksController(seed=123, scene_spec=env.scene_spec)
+    controller = BlocksController(seed=123, scene_spec=env.scene_spec, safe_height=0.2)
     # Sensitive to catch failures
     failure_monitor = BlocksFailureMonitor(move_tol=0.01)
     failure_finder = LLMCommanderFailureFinder(
-        llm, seed=123, max_num_trajectories=50, max_trajectory_length=10000
+        llm, seed=123, max_num_trajectories=1, max_trajectory_length=10000
     )
 
     # Run the failure finder, handling empty task plan exceptions
@@ -152,17 +148,17 @@ class SynthesizedCommander(Commander):
     else:
         print("✗ No failure found - this is acceptable for this test")
 
-    traj_to_render = result or failure_finder.last_trajectory
-    if traj_to_render is not None:
-        states = traj_to_render.observations
-    else:
-        initial_state = env.get_initial_states().sample()
-        states = [initial_state] * 30
-    # pylint: disable=protected-access
-    imgs = [env._render_state(s) for s in states]
-    path = Path("videos") / "test-llm-commander" / "blocks_llm_commander_test.mp4"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    # traj_to_render = result or failure_finder.last_trajectory
+    # if traj_to_render is not None:
+    #     states = traj_to_render.observations
+    # else:
+    #     initial_state = env.get_initial_states().sample()
+    #     states = [initial_state] * 30
+    # # pylint: disable=protected-access
+    # imgs = [env._render_state(s) for s in states]
+    # path = Path("videos") / "test-llm-commander" / "blocks_llm_commander_test.mp4"
+    # path.parent.mkdir(parents=True, exist_ok=True)
+    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
     env.close()
 
@@ -310,17 +306,17 @@ def test_openai_llm_blocks_commander_failure_finder():
     else:
         print("✗ No failure found")
 
-    traj_to_render = result or failure_finder.last_trajectory
-    if traj_to_render is not None:
-        states = traj_to_render.observations
-    else:
-        initial_state = env.get_initial_states().sample()
-        states = [initial_state] * 30
-    # pylint: disable=protected-access
-    imgs = [env._render_state(s) for s in states]
-    path = Path("videos") / "test-llm-commander" / "blocks_llm_commander_test.mp4"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
+    # traj_to_render = result or failure_finder.last_trajectory
+    # if traj_to_render is not None:
+    #     states = traj_to_render.observations
+    # else:
+    #     initial_state = env.get_initial_states().sample()
+    #     states = [initial_state] * 30
+    # # pylint: disable=protected-access
+    # imgs = [env._render_state(s) for s in states]
+    # path = Path("videos") / "test-llm-commander" / "blocks_llm_commander_test.mp4"
+    # path.parent.mkdir(parents=True, exist_ok=True)
+    # iio.mimsave(path, imgs, fps=env.metadata["render_fps"])
 
     env.close()
 

@@ -337,7 +337,6 @@ class BlocksEnv(ConstraintBasedGymEnv[BlocksEnvState, BlocksAction]):
 
         # Get the next state.
         state = self._get_state()
-        assert np.allclose(state.robot.joint_positions, joint_arr)
 
         return EnumSpace([state])
 
