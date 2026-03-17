@@ -125,7 +125,7 @@ class HoverCraftEnv(gym.Env[np.ndarray, int]):
         self.scene_spec = scene_spec or HoverCraftSceneSpec()
         self.render_mode = render_mode
 
-        self.action_space = Discrete(2)
+        self.action_space = Discrete(2)  # type: ignore[assignment]
         low = np.array([-np.inf, -np.inf, -np.inf, -np.inf, 0.0])
         high = np.array([np.inf, np.inf, np.inf, np.inf, np.inf])
         self.observation_space = gym.spaces.Box(low, high, dtype=np.float64)
