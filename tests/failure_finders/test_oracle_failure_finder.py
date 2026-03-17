@@ -1,11 +1,22 @@
 """Tests for the oracle failure finder."""
 
+from typing import Any
+
 import numpy as np
 import pytest
 
+from gym_failure_discovery.envs.blocks_env import (
+    PICK,
+    STACK,
+    BlocksEnv,
+    BlocksSceneSpec,
+)
 from gym_failure_discovery.envs.hovercraft_env import HoverCraftEnv, HoverCraftSceneSpec
 from gym_failure_discovery.failure_finders.oracle_failure_finder import (
     OracleFailureFinder,
+)
+from gym_failure_discovery.failure_monitors.blocks_failure_monitor import (
+    BlocksFailureMonitor,
 )
 from gym_failure_discovery.failure_monitors.hovercraft_failure_monitor import (
     HoverCraftFailureMonitor,
@@ -46,6 +57,40 @@ def test_oracle_finds_failure_with_switch_policy(maybe_record):  # type: ignore
     policy = _SwitchNearGoalPolicy(spec)
     env = maybe_record(HoverCraftEnv(spec))
     oracle = OracleFailureFinder(policy=policy, seed=0, max_trajectory_length=500)
+    result = oracle.find_failure(env, monitor)
+    assert result is not None
+    assert len(result) > 0
+    env.close()
+
+
+class _TowerBuildingPolicy(Policy):
+    """Builds a tower by sequentially picking block i and stacking on block i-1."""
+
+    def __init__(self, num_blocks: int) -> None:
+        self._num_blocks = num_blocks
+        self._action_queue: list[dict[str, Any]] = []
+
+    def reset(self) -> None:
+        self._action_queue = []
+        for i in range(1, self._num_blocks):
+            self._action_queue.append({"type": PICK, "block": i})
+            self._action_queue.append({"type": STACK, "block": i - 1})
+
+    def act(self, obs: Any) -> dict[str, Any]:
+        if self._action_queue:
+            return self._action_queue.pop(0)
+        return {"type": STACK, "block": 0}
+
+
+@pytest.mark.make_videos
+def test_oracle_finds_blocks_failure(maybe_record):  # type: ignore
+    """Tower-building policy should cause a collision with low safe height."""
+    spec = BlocksSceneSpec(num_blocks=4, safe_height=0.15)
+    raw_env = BlocksEnv(spec)
+    monitor = BlocksFailureMonitor(raw_env)
+    policy = _TowerBuildingPolicy(spec.num_blocks)
+    env = maybe_record(raw_env)
+    oracle = OracleFailureFinder(policy=policy, seed=0, max_trajectory_length=20)
     result = oracle.find_failure(env, monitor)
     assert result is not None
     assert len(result) > 0
