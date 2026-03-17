@@ -11,12 +11,23 @@ from gym_failure_discovery.envs.blocks_env import (
     BlocksEnv,
     BlocksSceneSpec,
 )
+from gym_failure_discovery.envs.conveyorbelt_env import (
+    FAST,
+    MID,
+    OFF,
+    SLOW,
+    ConveyorBeltEnv,
+    ConveyorBeltSceneSpec,
+)
 from gym_failure_discovery.envs.hovercraft_env import HoverCraftEnv, HoverCraftSceneSpec
 from gym_failure_discovery.failure_finders.oracle_failure_finder import (
     OracleFailureFinder,
 )
 from gym_failure_discovery.failure_monitors.blocks_failure_monitor import (
     BlocksFailureMonitor,
+)
+from gym_failure_discovery.failure_monitors.conveyorbelt_failure_monitor import (
+    ConveyorBeltFailureMonitor,
 )
 from gym_failure_discovery.failure_monitors.hovercraft_failure_monitor import (
     HoverCraftFailureMonitor,
@@ -91,6 +102,38 @@ def test_oracle_finds_blocks_failure(maybe_record):  # type: ignore
     policy = _TowerBuildingPolicy(spec.num_blocks)
     env = maybe_record(raw_env)
     oracle = OracleFailureFinder(policy=policy, seed=0, max_trajectory_length=20)
+    result = oracle.find_failure(env, monitor)
+    assert result is not None
+    assert len(result) > 0
+    env.close()
+
+
+class _SecretSequencePolicy(Policy):
+    """Issues the known failure-inducing sequence to trigger the explosion."""
+
+    def __init__(self) -> None:
+        self._step: int = 0
+
+    def reset(self) -> None:
+        self._step = 0
+
+    def act(self, obs: Any) -> int:
+        sequence = [FAST, SLOW, FAST, MID, FAST, FAST, FAST, SLOW]
+        if self._step < len(sequence):
+            action = sequence[self._step]
+            self._step += 1
+            return action
+        return OFF
+
+
+@pytest.mark.make_videos
+def test_oracle_finds_conveyorbelt_failure(maybe_record):  # type: ignore
+    """Issuing the known failure sequence should trigger the explosion."""
+    spec = ConveyorBeltSceneSpec()
+    env = maybe_record(ConveyorBeltEnv(spec, render_mode="rgb_array"))
+    monitor = ConveyorBeltFailureMonitor()
+    policy = _SecretSequencePolicy()
+    oracle = OracleFailureFinder(policy=policy, seed=0, max_trajectory_length=13)
     result = oracle.find_failure(env, monitor)
     assert result is not None
     assert len(result) > 0
