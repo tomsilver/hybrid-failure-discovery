@@ -37,7 +37,9 @@ class ConveyorBeltSceneSpec:
     gravity: float = 9.81
     drop_start_height: float = 1.0
     initial_drop_position: float = 0.0
-    secret_sequence: list[int] = field(default_factory=lambda: [FAST, SLOW, FAST, MID])
+    secret_sequence: list[int] = field(
+        default_factory=lambda: [FAST, SLOW, FAST, MID, FAST, FAST, FAST, SLOW]
+    )
 
 
 class ConveyorBeltEnv(gym.Env[dict[str, Any], int]):
