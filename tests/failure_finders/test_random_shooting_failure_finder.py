@@ -36,6 +36,7 @@ def test_random_shooting_finds_hovercraft_failure(maybe_record):  # type: ignore
     assert len(result) > 0
     env.close()
 
+
 # added -- for conveyorbelt
 @pytest.mark.make_videos
 def test_random_shooting_finds_conveyorbelt_failure(maybe_record):  # type: ignore
