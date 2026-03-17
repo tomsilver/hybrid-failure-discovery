@@ -64,7 +64,7 @@ class ConveyorBeltEnv(gym.Env[dict[str, Any], int]):
             scene_spec = ConveyorBeltSceneSpec()
         self.scene_spec = scene_spec
         self.render_mode = render_mode
-        self.action_space = Discrete(NUM_MODES)
+        self.action_space = Discrete(NUM_MODES)  # type: ignore[assignment]
 
         # Mode timing: steps between drops.
         dt = scene_spec.dt
