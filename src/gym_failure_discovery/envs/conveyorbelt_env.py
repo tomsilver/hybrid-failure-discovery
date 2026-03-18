@@ -13,7 +13,9 @@ import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
 from gymnasium.core import RenderFrame
-from gymnasium.spaces import Discrete
+
+# Box, Dict added for llm
+from gymnasium.spaces import Box, Dict, Discrete
 from numpy.typing import NDArray
 from tomsutils.utils import fig2data
 
@@ -67,7 +69,26 @@ class ConveyorBeltEnv(gym.Env[dict[str, Any], int]):
         self.scene_spec = scene_spec
         self.render_mode = render_mode
         self.action_space = Discrete(NUM_MODES)  # type: ignore[assignment]
-
+        # added -- for llm
+        max_boxes = 32
+        self.observation_space = Dict(  # type: ignore[assignment]
+            {
+                "positions": Box(
+                    low=0.0,
+                    high=scene_spec.belt_length,
+                    shape=(max_boxes,),
+                    dtype=np.float32,
+                ),
+                "falling_heights": Box(
+                    low=0.0,
+                    high=scene_spec.drop_start_height,
+                    shape=(max_boxes,),
+                    dtype=np.float32,
+                ),
+                "exploded": Discrete(2),
+            }
+        )
+        # added -- for llm -- END
         # Mode timing: steps between drops.
         dt = scene_spec.dt
         self._mode_to_steps: dict[int, int | None] = {
