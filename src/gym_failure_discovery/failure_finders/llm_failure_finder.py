@@ -7,6 +7,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.core import ActType, ObsType
 from tomsutils.llm import LargeLanguageModel, parse_python_code_from_llm_response
+from tomsutils.utils import sample_seed_from_rng
 
 from gym_failure_discovery.failure_finders.failure_finder import FailureFinder
 from gym_failure_discovery.failure_monitors.failure_monitor import FailureMonitor
@@ -26,7 +27,7 @@ class LLMFailureFinder(FailureFinder):
         num_synthesis_retries: int = 3,
     ) -> None:
         self._llm = llm
-        self._seed = seed
+        self._rng = np.random.default_rng(seed)
         self._max_trajectory_length = max_trajectory_length
         self._max_num_attempts = max_num_attempts
         self._llm_temperature = llm_temperature
@@ -38,12 +39,11 @@ class LLMFailureFinder(FailureFinder):
         monitor: FailureMonitor,
     ) -> list[tuple[ObsType, ActType]] | None:
         for _ in range(self._max_num_attempts):
-            policy = self._synthesize_policy(env, monitor)
+            seed = sample_seed_from_rng(self._rng)
+            policy = self._synthesize_policy(env, monitor, seed)
             if policy is None:
                 continue
-            result = rollout(
-                env, monitor, policy, self._seed, self._max_trajectory_length
-            )
+            result = rollout(env, monitor, policy, seed, self._max_trajectory_length)
             if result is not None:
                 return result
         return None
@@ -52,6 +52,7 @@ class LLMFailureFinder(FailureFinder):
         self,
         env: gym.Env[ObsType, ActType],
         monitor: FailureMonitor,
+        seed: int,
     ) -> Policy | None:
         env_source = _get_source(env)
         monitor_source = _get_source(monitor)
@@ -81,6 +82,7 @@ The policy should try to induce a failure (make the monitor's `step` return True
 
 ```python
 class SynthesizedPolicy:
+
     def reset(self):
         ...
     def act(self, obs):
@@ -99,7 +101,7 @@ Provide only the class definition.
             response, _ = self._llm.query(
                 full_prompt,
                 temperature=self._llm_temperature,
-                seed=self._seed,
+                seed=seed,
             )
             code = parse_python_code_from_llm_response(response)
             namespace: dict = {"np": np}
