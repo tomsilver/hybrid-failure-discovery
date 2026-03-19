@@ -43,7 +43,12 @@ class LLMFailureFinder(FailureFinder):
             policy = self._synthesize_policy(env, monitor, seed)
             if policy is None:
                 continue
-            result = rollout(env, monitor, policy, seed, self._max_trajectory_length)
+            try:
+                result = rollout(
+                    env, monitor, policy, seed, self._max_trajectory_length
+                )
+            except Exception:  # pylint: disable=broad-except
+                continue
             if result is not None:
                 return result
         return None
@@ -129,6 +134,7 @@ class _WrappedPolicy(Policy):
 
 def _get_source(obj: object) -> str:
     """Get the source code of the module defining obj's class."""
-    module = inspect.getmodule(obj.__class__)
+    actual = obj.unwrapped if isinstance(obj, gym.Wrapper) else obj
+    module = inspect.getmodule(actual.__class__)
     assert module is not None
     return inspect.getsource(module)
