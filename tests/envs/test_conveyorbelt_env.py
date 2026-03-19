@@ -1,5 +1,6 @@
 """Tests for the conveyor belt environment."""
 
+import numpy as np
 import pytest
 
 from gym_failure_discovery.envs.conveyorbelt_env import (
@@ -19,7 +20,7 @@ def test_reset_empty_belt():
     """After reset, belt should be empty and not exploded."""
     env = ConveyorBeltEnv()
     obs, _ = env.reset(seed=0)
-    assert len(obs["positions"]) == 0
+    assert np.all(obs["positions"] == 0)
     assert not obs["exploded"]
 
 
@@ -29,7 +30,7 @@ def test_off_mode_never_drops():
     env.reset(seed=0)
     for _ in range(500):
         obs, _, _, _, _ = env.step(OFF)
-    assert len(obs["positions"]) == 0
+    assert np.all(obs["positions"] == 0)
 
 
 def test_fast_mode_drops_packages():
@@ -38,7 +39,7 @@ def test_fast_mode_drops_packages():
     env.reset(seed=0)
     for _ in range(100):
         obs, _, _, _, _ = env.step(FAST)
-    assert len(obs["positions"]) > 0
+    assert np.any(obs["positions"] > 0)
 
 
 def test_secret_sequence_triggers_explosion():
