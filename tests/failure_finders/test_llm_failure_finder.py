@@ -160,3 +160,50 @@ def test_llm_failure_finder_openai(maybe_record):  # type: ignore
     assert result is not None
     assert len(result) > 0
     env.close()
+
+
+@pytest.mark.run_llms
+@pytest.mark.make_videos
+def test_llm_failure_finder_blocks_openai(maybe_record):  # type: ignore
+    """Run a real OpenAI LLM to find a blocks failure."""
+    llm = OpenAILLM("gpt-4o", Path("./llm_cache"), max_tokens=4096)
+    spec = BlocksSceneSpec(num_blocks=4, safe_height=0.15)
+    raw_env = BlocksEnv(spec)
+    monitor = BlocksFailureMonitor(raw_env)
+    env = maybe_record(raw_env)
+    finder = LLMFailureFinder(llm, seed=0, max_trajectory_length=20, max_num_attempts=5)
+    result = finder.find_failure(env, monitor)
+    assert result is not None
+    assert len(result) > 0
+    env.close()
+
+
+@pytest.mark.run_llms
+@pytest.mark.make_videos
+def test_llm_failure_finder_conveyorbelt_openai(maybe_record):  # type: ignore
+    """Run a real OpenAI LLM to find a conveyor belt failure.
+
+    The secret sequence is 8 actions long. max_trajectory_length=200 gives
+    the policy plenty of room, and max_num_attempts=10 allows GPT-4o multiple
+    tries to read secret_sequence from the source code and hardcode the actions.
+
+    The search runs on the unwrapped env to avoid one video per LLM attempt;
+    only the confirmed failure trajectory is replayed with recording.
+    """
+    llm = OpenAILLM("gpt-4o", Path("./llm_cache"), max_tokens=4096)
+    spec = ConveyorBeltSceneSpec()
+    raw_env = ConveyorBeltEnv(spec, render_mode="rgb_array")
+    monitor = ConveyorBeltFailureMonitor()
+    finder = LLMFailureFinder(
+        llm, seed=0, max_trajectory_length=200, max_num_attempts=10
+    )
+    result = finder.find_failure(raw_env, monitor)
+    assert result is not None
+    assert len(result) > 0
+
+    # Replay only the failure trajectory with video recording.
+    env = maybe_record(raw_env)
+    env.reset(seed=0)
+    for _, action in result:
+        env.step(action)
+    env.close()

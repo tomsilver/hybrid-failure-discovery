@@ -25,6 +25,7 @@ MID = 2
 FAST = 3
 NUM_MODES = 4
 MODE_NAMES = ["off", "slow", "mid", "fast"]
+MAX_BOXES = 32  # fixed observation array length; slots beyond active boxes are 0
 
 
 @dataclass(frozen=True)
@@ -69,20 +70,18 @@ class ConveyorBeltEnv(gym.Env[dict[str, Any], int]):
         self.scene_spec = scene_spec
         self.render_mode = render_mode
         self.action_space = Discrete(NUM_MODES)  # type: ignore[assignment]
-        # added -- for llm
-        max_boxes = 32
         self.observation_space = Dict(  # type: ignore[assignment]
             {
                 "positions": Box(
                     low=0.0,
                     high=scene_spec.belt_length,
-                    shape=(max_boxes,),
+                    shape=(MAX_BOXES,),
                     dtype=np.float32,
                 ),
                 "falling_heights": Box(
                     low=0.0,
                     high=scene_spec.drop_start_height,
-                    shape=(max_boxes,),
+                    shape=(MAX_BOXES,),
                     dtype=np.float32,
                 ),
                 "exploded": Discrete(2),
@@ -143,9 +142,14 @@ class ConveyorBeltEnv(gym.Env[dict[str, Any], int]):
         return self._render_frame()  # type: ignore[return-value]
 
     def _get_obs(self) -> dict[str, Any]:
+        positions = np.zeros(MAX_BOXES, dtype=np.float32)
+        falling_heights = np.zeros(MAX_BOXES, dtype=np.float32)
+        n = min(len(self._positions), MAX_BOXES)
+        positions[:n] = self._positions[:n]
+        falling_heights[:n] = self._falling_heights[:n]
         return {
-            "positions": self._positions.copy(),
-            "falling_heights": self._falling_heights.copy(),
+            "positions": positions,
+            "falling_heights": falling_heights,
             "exploded": self._exploded,
         }
 
