@@ -2,7 +2,7 @@
 
 The agent selects a drop-rate mode each step (off / slow / mid / fast).
 The environment internally handles drop timing and physics.  A hidden
-``secret_sequence`` of modes triggers an explosion when issued in order
+``secret_sequence`` of 8 modes triggers an explosion when issued in order
 — the failure finder's job is to discover this sequence.
 """
 

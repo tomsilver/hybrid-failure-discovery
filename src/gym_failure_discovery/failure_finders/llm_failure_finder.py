@@ -15,7 +15,13 @@ from gym_failure_discovery.utils import Policy, rollout
 
 
 class LLMFailureFinder(FailureFinder):
-    """Uses an LLM to synthesize a policy that induces a failure."""
+    """Uses an LLM to synthesize a policy that induces a failure.
+
+    The LLM is given the full source of the failure monitor (so it knows the
+    exact failure condition) but only the docstrings of the environment module
+    (no implementation details).  This prevents it from reading internal state
+    variables or logic to trivially engineer a failure.
+    """
 
     def __init__(
         self,
@@ -59,44 +65,38 @@ class LLMFailureFinder(FailureFinder):
         monitor: FailureMonitor,
         seed: int,
     ) -> Policy | None:
-        env_source = _get_source(env)
-        monitor_source = _get_source(monitor)
+        env_block = _get_docstring(env)
+        monitor_block = f"```python\n{_get_source(monitor)}\n```"
 
-        prompt = f"""Given the following gymnasium environment and failure monitor:
-
-Environment:
-```python
-{env_source}
-```
-
-Failure Monitor:
-```python
-{monitor_source}
-```
-
-The environment has action space: {env.action_space}
-The environment has observation space: {env.observation_space}
-
-A failure is detected by the monitor's `step` method returning True.
-
-Please write a Python class called `SynthesizedPolicy` that has:
-- a `reset(self)` method to initialize/reset any internal state
-- an `act(self, obs)` method that takes an observation and returns an action
-
-The policy should try to induce a failure (make the monitor's `step` return True).
-
-```python
-class SynthesizedPolicy:
-
-    def reset(self):
-        ...
-    def act(self, obs):
-        ...
-```
-
-You may use numpy (imported as np). Do NOT import anything else.
-Provide only the class definition.
-"""
+        prompt = (
+            "You are searching for inputs that cause a gymnasium"
+            " environment to fail.\n\n"
+            f"Environment context:\n{env_block}\n\n"
+            f"Failure monitor context:\n{monitor_block}\n\n"
+            f"The environment has action space: {env.action_space}\n"
+            "The environment has observation space:"
+            f" {env.observation_space}\n\n"
+            "A failure is detected by the monitor's `step` method"
+            " returning True.\n\n"
+            "Please write a Python class called `SynthesizedPolicy`"
+            " that has:\n"
+            "- a `reset(self)` method to initialize/reset any"
+            " internal state\n"
+            "- an `act(self, obs)` method that takes an observation"
+            " and returns an action\n\n"
+            "The policy should try to induce a failure (make the"
+            " monitor's `step` return True).\n\n"
+            "```python\n"
+            "class SynthesizedPolicy:\n\n"
+            "    def reset(self):\n"
+            "        ...\n"
+            "    def act(self, obs):\n"
+            "        ...\n"
+            "```\n\n"
+            "You may use numpy (imported as np)."
+            " Do NOT import anything else.\n"
+            "Provide only the class definition.\n"
+        )
 
         previous_error: str | None = None
         for _ in range(self._num_synthesis_retries):
@@ -132,9 +132,29 @@ class _WrappedPolicy(Policy):
         return self._inner.act(obs)  # type: ignore[attr-defined]
 
 
+def _actual(obj: object) -> object:
+    """Unwrap gymnasium wrappers to reach the real environment/monitor."""
+    return obj.unwrapped if isinstance(obj, gym.Wrapper) else obj
+
+
 def _get_source(obj: object) -> str:
-    """Get the source code of the module defining obj's class."""
-    actual = obj.unwrapped if isinstance(obj, gym.Wrapper) else obj
-    module = inspect.getmodule(actual.__class__)
+    """Return the full source of the module that defines obj's class."""
+    module = inspect.getmodule(_actual(obj).__class__)
     assert module is not None
     return inspect.getsource(module)
+
+
+def _get_docstring(obj: object) -> str:
+    """Return a concise description built from module- and class-level docstrings."""
+    cls = _actual(obj).__class__
+    module = inspect.getmodule(cls)
+    assert module is not None
+    parts: list[str] = []
+    if module.__doc__:
+        parts.append(f"Module description:\n{inspect.cleandoc(module.__doc__)}")
+    class_doc = inspect.getdoc(cls)
+    if class_doc:
+        parts.append(f"Class `{cls.__name__}` description:\n{class_doc}")
+    return (
+        "\n\n".join(parts) if parts else f"(No docstring available for {cls.__name__})"
+    )
