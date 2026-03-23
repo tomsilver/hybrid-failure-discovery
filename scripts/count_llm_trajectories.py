@@ -1,4 +1,9 @@
-"""Count LLM attempts until failure for 14 seeds across all three environments."""
+"""Count LLM attempts until failure for 15 seeds across all three environments.
+
+The LLM is given the full failure monitor source but only environment
+docstrings, so it knows what a failure looks like without seeing how the
+environment works internally.
+"""
 
 from pathlib import Path
 from typing import Any
@@ -24,7 +29,23 @@ from gym_failure_discovery.failure_monitors.hovercraft_failure_monitor import (
     HoverCraftFailureMonitor,
 )
 
-SEEDS: list[int] = [0, 79, 158, 237, 317, 396, 475, 555, 634, 713, 793, 872, 951, 1031]
+SEEDS: list[int] = [
+    0,
+    79,
+    158,
+    237,
+    317,
+    396,
+    475,
+    555,
+    634,
+    713,
+    793,
+    872,
+    951,
+    1031,
+    1110,
+]
 CACHE_DIR = Path("./llm_cache")
 
 
@@ -40,7 +61,9 @@ class _CountingEnv(gym.Wrapper):
         return self.env.reset(**kwargs)
 
 
-def run_env(label: str, make_env_monitor, max_traj: int, max_attempts: int) -> None:
+def run_env(
+    label: str, make_env_monitor: Any, max_traj: int, max_attempts: int
+) -> None:
     """Run LLM failure finder over all seeds and print mean/std of attempt counts."""
     counts: list[float] = []
     for seed in SEEDS:
@@ -64,22 +87,29 @@ def run_env(label: str, make_env_monitor, max_traj: int, max_attempts: int) -> N
     arr = np.array(counts)
     valid = arr[~np.isnan(arr)]
     n_miss = int(np.sum(np.isnan(arr)))
-    print(
-        f"\n  {label}:\n"
-        f"    mean={np.mean(valid):.2f}  std={np.std(valid):.2f}  "
-        f"min={int(np.min(valid))}  max={int(np.max(valid))}  "
-        f"no_failure={n_miss}/{len(SEEDS)}\n"
-    )
+    if len(valid) == 0:
+        print(
+            f"\n  {label}:\n"
+            f"    mean=N/A  std=N/A  min=N/A  max=N/A"
+            f"  no_failure={n_miss}/{len(SEEDS)}\n"
+        )
+    else:
+        print(
+            f"\n  {label}:\n"
+            f"    mean={np.mean(valid):.2f}  std={np.std(valid):.2f}  "
+            f"min={int(np.min(valid))}  max={int(np.max(valid))}  "
+            f"no_failure={n_miss}/{len(SEEDS)}\n"
+        )
 
 
 def main() -> None:
-    """Run real LLM failure finder experiments and report statistics."""
+    """Run LLM failure finder experiments and report statistics."""
     print(f"Seeds: {SEEDS}\n")
 
     # ── Hovercraft ────────────────────────────────────────────────────────────
-    print("=== LLM Real / Hovercraft (max_attempts=5, max_traj_length=500) ===")
+    print("=== LLM / Hovercraft (max_attempts=5, max_traj_length=500) ===")
     run_env(
-        "LLM Real / Hovercraft",
+        "LLM / Hovercraft",
         lambda: (
             HoverCraftEnv(HoverCraftSceneSpec()),
             HoverCraftFailureMonitor(HoverCraftSceneSpec()),
@@ -89,25 +119,25 @@ def main() -> None:
     )
 
     # ── Blocks ────────────────────────────────────────────────────────────────
-    print("=== LLM Real / Blocks (max_attempts=5, max_traj_length=20) ===")
+    print("=== LLM / Blocks (max_attempts=5, max_traj_length=20) ===")
 
     def _blocks() -> tuple:
         spec = BlocksSceneSpec(num_blocks=4, safe_height=0.15)
         raw = BlocksEnv(spec)
         return raw, BlocksFailureMonitor(raw)
 
-    run_env("LLM Real / Blocks", _blocks, max_traj=20, max_attempts=5)
+    run_env("LLM / Blocks", _blocks, max_traj=20, max_attempts=5)
 
     # ── ConveyorBelt ──────────────────────────────────────────────────────────
-    print("=== LLM Real / ConveyorBelt (max_attempts=10, max_traj_length=200) ===")
+    print("=== LLM / ConveyorBelt (max_attempts=5, max_traj_length=200) ===")
     run_env(
-        "LLM Real / ConveyorBelt",
+        "LLM / ConveyorBelt",
         lambda: (
             ConveyorBeltEnv(ConveyorBeltSceneSpec(), render_mode="rgb_array"),
             ConveyorBeltFailureMonitor(),
         ),
         max_traj=200,
-        max_attempts=10,
+        max_attempts=5,
     )
 
 
